@@ -1,0 +1,6 @@
+{
+  "name": "NuRa Flow",
+  "description": "Central de memória operacional para reuniões, agenda, anotações, tarefas e projetos, com modo local e IA opcional.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

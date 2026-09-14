@@ -1,0 +1,20 @@
+{
+  "name": "NuRa — Gestão & Memória Operacional",
+  "short_name": "NuRa Flow",
+  "description": "Central de reuniões, anotações, tarefas e memória operacional do Núcleo de Recursos e Ações.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#15803d",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

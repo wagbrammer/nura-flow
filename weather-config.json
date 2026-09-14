@@ -1,0 +1,26 @@
+[
+  {
+    "id": "default_1",
+    "latitude": -28.4491,
+    "longitude": -52.2004,
+    "cityName": "Marau, RS"
+  },
+  {
+    "id": "city_1788660736773",
+    "latitude": -23.5505,
+    "longitude": -46.6333,
+    "cityName": "S�o Paulo, SP"
+  },
+  {
+    "id": "city_1788672247617",
+    "latitude": -23.5505,
+    "longitude": -46.6333,
+    "cityName": "S�o Paulo, SP"
+  },
+  {
+    "id": "city_1788698309637",
+    "latitude": -23.5505,
+    "longitude": -46.6333,
+    "cityName": "S�o Paulo, SP"
+  }
+]
