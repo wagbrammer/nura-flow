@@ -17,9 +17,9 @@ WORKDIR /app
 # Copy only necessary files
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY --from=base /app/server.ts ./server.ts
-COPY --from=base /app/package*.json ./
-COPY --from=base /app/.env* ./
+COPY --from=build /app/server.ts ./server.ts
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/.env* ./
 COPY --from=build /app/scripts ./scripts
 
 EXPOSE 3000
