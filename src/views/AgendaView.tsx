@@ -28,6 +28,7 @@ export const AgendaView: React.FC = () => {
   const {
     meetings,
     notes,
+    events,
     setCurrentView,
     setSelectedMeetingId,
     startMeetingMode,
@@ -42,6 +43,7 @@ export const AgendaView: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week'>('week');
   const [selectedMeeting, setSelectedMeeting] = useState<any | null>(meetings[0] || null);
+  const [showGoogleEvents, setShowGoogleEvents] = useState(true);
   const [isMiniAtaModalOpen, setIsMiniAtaModalOpen] = useState(false);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
@@ -92,6 +94,9 @@ export const AgendaView: React.FC = () => {
 
   // Get active meeting object to reflect realtime updates
   const activeMeeting = meetings.find(m => m.id === selectedMeeting?.id) || selectedMeeting;
+
+  // Filter Google Calendar events for current view
+  const googleEvents = events.filter(e => e.isGoogleEvent && showGoogleEvents);
 
   // Edit meeting handlers
   const handleEditMeeting = (meeting: any) => {

@@ -238,7 +238,7 @@ const TagsManagementSection: React.FC = () => {
 };
 
 export const SettingsView: React.FC = () => {
-  const { user, updateUser, resetDatabase, weatherLocation, setWeatherLocation } = useApp();
+  const { user, updateUser, resetDatabase, weatherLocation, setWeatherLocation, events, setEvents, addEvent } = useApp();
 
   const [userName, setUserName] = useState(user.name);
   const [userEmail, setUserEmail] = useState(user.email);
@@ -254,6 +254,8 @@ export const SettingsView: React.FC = () => {
   const [clientSecret, setClientSecret] = useState('');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [showRestartAlert, setShowRestartAlert] = useState(false);
+  const [googleSyncLoading, setGoogleSyncLoading] = useState(false);
+  const [googleSyncMessage, setGoogleSyncMessage] = useState<string | null>(null);
   const [geminiStatus, setGeminiStatus] = useState<{ configured: boolean; model: string; hasKey: boolean } | null>(null);
   const [isLoadingGemini, setIsLoadingGemini] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -328,9 +330,17 @@ export const SettingsView: React.FC = () => {
       .catch(err => console.error('Erro ao carregar localização do weather do servidor:', err));
   }, []);
 
+  // Sincronizar Google automaticamente quando conectado
   useEffect(() => {
-    fetchGeminiStatus();
-  }, []);
+    if (googleStatus?.connected) {
+      handleSyncGoogle();
+      // Sincronizar a cada 30 minutos
+      const interval = setInterval(() => {
+        handleSyncGoogle();
+      }, 30 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [googleStatus?.connected]);
 
   // OpenRouter handlers
   const fetchOpenRouterStatus = async () => {
@@ -563,6 +573,33 @@ export const SettingsView: React.FC = () => {
 
   const handleConnectGoogle = () => {
     window.location.href = '/api/auth/google';
+  };
+
+  const handleSyncGoogle = async () => {
+    setGoogleSyncLoading(true);
+    setGoogleSyncMessage(null);
+    try {
+      // Buscar eventos do calendário
+      const eventsRes = await fetch('/api/google/calendar/events');
+      const eventsData = await eventsRes.json();
+      if (eventsData.events && eventsData.events.length > 0) {
+        // Salvar eventos no contexto
+        const newEvents = eventsData.events.filter((event: any) =>
+          !events.some(e => e.id === event.id)
+        );
+        if (newEvents.length > 0) {
+          newEvents.forEach((event: any) => addEvent(event));
+        }
+        setGoogleSyncMessage(`✅ ${eventsData.events.length} eventos do calendário sincronizados! (${newEvents.length} novos)`);
+      } else {
+        setGoogleSyncMessage('⚠️ Nenhum evento novo encontrado no Google Calendar');
+      }
+    } catch (error) {
+      setGoogleSyncMessage('❌ Erro ao sincronizar dados do Google');
+      console.error(error);
+    } finally {
+      setGoogleSyncLoading(false);
+    }
   };
 
   const handleDisconnectGoogle = async () => {
@@ -1015,12 +1052,22 @@ export const SettingsView: React.FC = () => {
             <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
           ) : googleStatus?.configured ? (
             googleStatus.connected ? (
-              <button
-                onClick={handleDisconnectGoogle}
-                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors flex items-center gap-1"
-              >
-                <Unlink2 className="w-3 h-3" /> Desconectar Google
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSyncGoogle}
+                  disabled={googleSyncLoading}
+                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3 h-3 ${googleSyncLoading ? 'animate-spin' : ''}`} />
+                  Sincronizar
+                </button>
+                <button
+                  onClick={handleDisconnectGoogle}
+                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors flex items-center gap-1"
+                >
+                  <Unlink2 className="w-3 h-3" /> Desconectar
+                </button>
+              </div>
             ) : (
               <button
                 onClick={handleConnectGoogle}
@@ -1106,7 +1153,7 @@ export const SettingsView: React.FC = () => {
             </div>
             <p className="text-[11px] text-slate-500 leading-tight">
               {googleStatus?.connected
-                ? 'Sincronização em tempo real ativa para sua agenda primária.'
+                ? 'Clique em "Sincronizar" para buscar seus eventos.'
                 : 'A sincronização requer autorização OAuth para ler seus eventos.'}
             </p>
           </div>
