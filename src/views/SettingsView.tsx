@@ -332,15 +332,38 @@ export const SettingsView: React.FC = () => {
 
   // Sincronizar Google automaticamente quando conectado
   useEffect(() => {
-    if (googleStatus?.connected) {
-      handleSyncGoogle();
-      // Sincronizar a cada 30 minutos
-      const interval = setInterval(() => {
-        handleSyncGoogle();
-      }, 30 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [googleStatus?.connected]);
+    if (!googleStatus?.connected) return;
+
+    let mounted = true;
+    let intervalId: any;
+
+    const syncGoogle = async () => {
+      if (!mounted) return;
+      try {
+        const eventsRes = await fetch('/api/google/calendar/events');
+        const eventsData = await eventsRes.json();
+        if (eventsData.events && eventsData.events.length > 0) {
+          const newEvents = eventsData.events.filter((event: any) =>
+            !events.some(e => e.id === event.id)
+          );
+          if (newEvents.length > 0) {
+            newEvents.forEach((event: any) => addEvent(event));
+          }
+          setGoogleSyncMessage(`✅ ${eventsData.events.length} eventos sincronizados! (${newEvents.length} novos)`);
+        }
+      } catch (error) {
+        console.error('Erro ao sincronizar Google Calendar:', error);
+      }
+    };
+
+    syncGoogle();
+    intervalId = setInterval(syncGoogle, 30 * 60 * 1000);
+
+    return () => {
+      mounted = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [googleStatus?.connected, events, addEvent]);
 
   // OpenRouter handlers
   const fetchOpenRouterStatus = async () => {
