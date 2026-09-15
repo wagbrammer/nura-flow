@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Settings,
@@ -238,7 +238,7 @@ const TagsManagementSection: React.FC = () => {
 };
 
 export const SettingsView: React.FC = () => {
-  const { user, updateUser, resetDatabase, weatherLocation, setWeatherLocation, events, setEvents, addEvent } = useApp();
+  const { user, updateUser, resetDatabase, weatherLocation, setWeatherLocation, events, addEvent } = useApp();
 
   const [userName, setUserName] = useState(user.name);
   const [userEmail, setUserEmail] = useState(user.email);
@@ -255,7 +255,6 @@ export const SettingsView: React.FC = () => {
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [showRestartAlert, setShowRestartAlert] = useState(false);
   const [googleSyncLoading, setGoogleSyncLoading] = useState(false);
-  const [googleSyncMessage, setGoogleSyncMessage] = useState<string | null>(null);
   const [geminiStatus, setGeminiStatus] = useState<{ configured: boolean; model: string; hasKey: boolean } | null>(null);
   const [isLoadingGemini, setIsLoadingGemini] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -330,40 +329,6 @@ export const SettingsView: React.FC = () => {
       .catch(err => console.error('Erro ao carregar localização do weather do servidor:', err));
   }, []);
 
-  // Sincronizar Google automaticamente quando conectado
-  useEffect(() => {
-    if (!googleStatus?.connected) return;
-
-    let mounted = true;
-    let intervalId: any;
-
-    const syncGoogle = async () => {
-      if (!mounted) return;
-      try {
-        const eventsRes = await fetch('/api/google/calendar/events');
-        const eventsData = await eventsRes.json();
-        if (eventsData.events && eventsData.events.length > 0) {
-          const newEvents = eventsData.events.filter((event: any) =>
-            !events.some(e => e.id === event.id)
-          );
-          if (newEvents.length > 0) {
-            newEvents.forEach((event: any) => addEvent(event));
-          }
-          setGoogleSyncMessage(`✅ ${eventsData.events.length} eventos sincronizados! (${newEvents.length} novos)`);
-        }
-      } catch (error) {
-        console.error('Erro ao sincronizar Google Calendar:', error);
-      }
-    };
-
-    syncGoogle();
-    intervalId = setInterval(syncGoogle, 30 * 60 * 1000);
-
-    return () => {
-      mounted = false;
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [googleStatus?.connected, events, addEvent]);
 
   // OpenRouter handlers
   const fetchOpenRouterStatus = async () => {
