@@ -1,52 +1,41 @@
-
 # ============================================================
-# Multi‑stage build for Node.js + Vite + Express app
+# Multi‑stage Dockerfile – otimizado para Render
 # ============================================================
 FROM node:20-slim AS base
 WORKDIR /app
 COPY package*.json ./
-# Instala apenas dependências de produção (mais rápido)
+# Instala apenas dependências de produção
 RUN npm ci --omit=dev 2>/dev/null || npm ci
 
-# ------------------------------------------------------------
-# Etapa de build – precisamos de TODAS as dependências
-# ------------------------------------------------------------
+# ---- Fase de build ----
 FROM base AS build
-WORKDIR /app
-# Instala TUDO (produção + dev) para que o Vite/Esbuild funcionem
 RUN npm ci
 COPY . .
-# Gera o frontend otimizado e o bundle do backend
-RUN npm run build   # → cria dist/, dist/server.cjs, dist/server/index.js, etc.
+RUN npm run build   # gera dist/ + server.cjs
 
-# ------------------------------------------------------------
-# Etapa de produção – apenas o necessário para rodar
-# ------------------------------------------------------------
+# ---- Fase de produção ----
 FROM node:20-slim AS production
 WORKDIR /app
 
-# 1️⃣ node_modules de produção (já otimizados na base)
+# 1) node_modules de produção (já otimizados na base)
 COPY --from=base /app/node_modules ./node_modules
 
-# 2️⃣ Resultado do build do frontend
+# 2) Resultados do build
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/server.cjs ./server.cjs
 
-# 3️⃣ Bundle do backend compilado (o que realmente será executado)
-COPY --from=build /app/dist/server.cjs ./server.cjs
-
-# 4️⃣ Arquivos de configuração que podem variar por ambiente
+# 3) Configurações e scripts
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/.env* ./
 COPY --from=build /app/scripts ./scripts
 
-# Porta que o Render expõe automaticamente
+# 4) Pasta de dados necessária pelas rotas de API
+RUN mkdir -p /app/server/data   # ← Cria diretório se não existir
+
+# 5) Expondo porta
 EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Health check simples (opcional, mas recomendado)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"
-
-# ▶️ Comando de inicialização: executa o bundle compilado
+# 6) Iniciar aplicação
 CMD ["node", "server.cjs", "--production"]
