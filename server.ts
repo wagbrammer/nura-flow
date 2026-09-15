@@ -732,13 +732,7 @@ async function startServer() {
     res.status(201).json(message);
   });
 
-  // Initialize database tables on startup
-  try {
-    await initializeDatabase();
-    console.log('[DB] Banco de dados inicializado com sucesso');
-  } catch (error) {
-    console.error('[DB] Erro ao inicializar banco de dados:', error);
-  }
+  app.post("/api/auth/logout", (req, res) => {
     res.setHeader("Set-Cookie", clearSessionCookie());
     res.redirect(303, "/");
   });
