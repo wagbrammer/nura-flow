@@ -4,9 +4,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev 2>/dev/null || npm ci
 
-# Build frontend
+# Build frontend - precisa de TODAS as dependências (incluindo devDependencies)
 FROM base AS build
-RUN npm install -g pnpm
+WORKDIR /app
+COPY package*.json ./
+# Instala TUDO (produção + desenvolvimento) para poder rodar o build
+RUN npm ci
 COPY . .
 RUN npm run build
 
@@ -14,8 +17,9 @@ RUN npm run build
 FROM node:20-slim AS production
 WORKDIR /app
 
-# Copy only necessary files
+# Copia apenas o necessário da fase base (node_modules de produção)
 COPY --from=base /app/node_modules ./node_modules
+# Copia o resultado do build (dist, server.ts, scripts, .env*)
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server.ts ./server.ts
 COPY --from=build /app/package*.json ./
