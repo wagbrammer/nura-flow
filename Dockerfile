@@ -28,7 +28,7 @@ COPY --from=base /app/node_modules ./node_modules
 
 # 2) Artefatos do build (frontend + backend bundle)
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/dist/server.cjs ./server.cjs
+COPY --from=build /app/server ./server
 
 # 3) Configurações e scripts auxiliares
 COPY --from=build /app/package*.json ./

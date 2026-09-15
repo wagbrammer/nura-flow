@@ -1,0 +1,3 @@
+# Dockerfile atualizado com copy de scripts e .env* da fase build
+# (sem dependências restantes)
+# *Não* contêm segredo

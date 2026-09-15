@@ -1,0 +1,104 @@
+[33mcommit 73822269bf16df8a3d87cfbbdab6ff42068d74e9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Merge: c78360e 891a9ee
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Tue Sep 15 10:46:24 2026 -0300
+
+    Resolve merge conflict in auth.ts
+
+[33mcommit c78360ed8dbf528a62e6a972aa44f38906bc4d8f[m
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Tue Sep 15 10:31:41 2026 -0300
+
+    Fix build: remove duplicate declarations, add --packages=external to esbuild
+
+[33mcommit 891a9eebff3bf73aafc971aeb051a874cc065dc4[m
+Author: wagbrammer <wagner.brammer@gmail.com>
+Date:   Tue Sep 15 10:26:53 2026 -0300
+
+    Update auth.ts
+    
+    Correge 2
+
+[33mcommit c23dce1415390a534361456da8a35f891cd582b7[m
+Author: wagbrammer <wagner.brammer@gmail.com>
+Date:   Tue Sep 15 10:20:18 2026 -0300
+
+    Update auth.ts
+    
+    Vnova correção email
+
+[33mcommit 12246482c1f3791a3f79cf1f50205b1197a3d1eb[m
+Author: wagbrammer <wagner.brammer@gmail.com>
+Date:   Tue Sep 15 08:53:11 2026 -0300
+
+    Update Dockerfile
+    
+    vai que cola 4
+
+[33mcommit 374a9ef9e3deb428442763cd0f3c9af8d530197f[m
+Author: wagbrammer <wagner.brammer@gmail.com>
+Date:   Tue Sep 15 08:50:39 2026 -0300
+
+    Update Dockerfile
+    
+    Vai que cola 3
+
+[33mcommit 52dad9ed4c958bce49c9d5018bea0e6c54b5c2db[m
+Author: wagbrammer <wagner.brammer@gmail.com>
+Date:   Tue Sep 15 08:45:02 2026 -0300
+
+    Update Dockerfile
+    
+    vai que cola 2
+
+[33mcommit cc682a9785f5743d095f1cc54895de7dcbdcc72c[m
+Author: wagbrammer <wagner.brammer@gmail.com>
+Date:   Tue Sep 15 08:36:35 2026 -0300
+
+    Update Dockerfile
+    
+    Vai que cola
+
+[33mcommit e0cdfa5726f51a4961918433797abfdf74fdb9b6[m
+Author: wagbrammer <wagner.brammer@gmail.com>
+Date:   Tue Sep 15 08:30:20 2026 -0300
+
+    Update Dockerfile
+    
+    Fix build
+
+[33mcommit 614875d43965db3524c86b2d0615260cc90b2983[m
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Tue Sep 15 08:18:00 2026 -0300
+
+    Corrigir Dockerfile: copiar server.ts e .env* da fase de build; atualizar dependências
+
+[33mcommit 7d6e8601208901cfe9490c9fc39d413fb405ad31[m
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Tue Sep 15 08:02:14 2026 -0300
+
+    Atualizar dependências, corrigir Dockerfile e remover script de build inválido
+
+[33mcommit 346973d315034ffeea3552e0a6bfb5a539dddd20[m
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Tue Sep 15 07:51:54 2026 -0300
+
+    Corrigir dependências: atualizar Vite para 8.x e alinhar @openai/sites-vite-plugin
+
+[33mcommit 05c0e897ee89059071b7c2e53402e9308407a2d3[m
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Tue Sep 15 07:25:21 2026 -0300
+
+    Fix dependencies for Render compatibility: update @dnd-kit and vite versions
+
+[33mcommit 7116effecb29cd61faf91ed91456db80510c5cc9[m
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Tue Sep 15 07:08:57 2026 -0300
+
+    Corrigir dependências para compatibilidade com Render
+
+[33mcommit c05fd453498fc9e79b308daa7ef6de0d1dcf2964[m
+Author: Wagner Brammer <wagbrammer@gmail.com>
+Date:   Mon Sep 14 16:45:54 2026 -0300
+
+    Primeiro commit

@@ -28,9 +28,9 @@ import {
   inboxStore,
   activityLogsStore,
   notificationsStore,
-  chatMessagesStore,
-  initializeStoresFromLocalStorage
-} from "./server/data-store";
+  chatMessagesStore
+} from "./server/data-store-db";
+import { initializeDatabase } from "./server/db";
 
 // Carregar configuração da logo do servidor
 const logoConfigPath = path.join(process.cwd(), 'logo-config.json');
@@ -412,317 +412,333 @@ async function startServer() {
   };
 
   // Meetings CRUD
-  app.get("/api/meetings", requireAuth, (req, res) => {
-    res.json({ meetings: meetingsStore.getAll() });
+  app.get("/api/meetings", requireAuth, async (req, res) => {
+    const meetings = await meetingsStore.getAll();
+    res.json({ meetings });
   });
 
-  app.get("/api/meetings/:id", requireAuth, (req, res) => {
-    const meeting = meetingsStore.getById(req.params.id);
+  app.get("/api/meetings/:id", requireAuth, async (req, res) => {
+    const meeting = await meetingsStore.getById(req.params.id);
     if (!meeting) return res.status(404).json({ error: "Reunião não encontrada" });
     res.json(meeting);
   });
 
-  app.post("/api/meetings", requireAuth, (req, res) => {
+  app.post("/api/meetings", requireAuth, async (req, res) => {
     const meeting = req.body;
     if (!meeting.id) meeting.id = `meeting_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!meeting.createdAt) meeting.createdAt = new Date().toISOString();
     meeting.updatedAt = new Date().toISOString();
-    meetingsStore.create(meeting);
+    await meetingsStore.create(meeting);
     res.status(201).json(meeting);
   });
 
-  app.put("/api/meetings/:id", requireAuth, (req, res) => {
-    const updated = meetingsStore.update(req.params.id, req.body);
+  app.put("/api/meetings/:id", requireAuth, async (req, res) => {
+    const updated = await meetingsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Reunião não encontrada" });
     res.json(updated);
   });
 
-  app.delete("/api/meetings/:id", requireAuth, (req, res) => {
-    const deleted = meetingsStore.delete(req.params.id);
+  app.delete("/api/meetings/:id", requireAuth, async (req, res) => {
+    const deleted = await meetingsStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Reunião não encontrada" });
     res.json({ success: true });
   });
 
   // Tasks CRUD
-  app.get("/api/tasks", requireAuth, (req, res) => {
-    res.json({ tasks: tasksStore.getAll() });
+  app.get("/api/tasks", requireAuth, async (req, res) => {
+    const tasks = await tasksStore.getAll();
+    res.json({ tasks });
   });
 
-  app.get("/api/tasks/:id", requireAuth, (req, res) => {
-    const task = tasksStore.getById(req.params.id);
+  app.get("/api/tasks/:id", requireAuth, async (req, res) => {
+    const task = await tasksStore.getById(req.params.id);
     if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
     res.json(task);
   });
 
-  app.post("/api/tasks", requireAuth, (req, res) => {
+  app.post("/api/tasks", requireAuth, async (req, res) => {
     const task = req.body;
     if (!task.id) task.id = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!task.createdAt) task.createdAt = new Date().toISOString();
     task.updatedAt = new Date().toISOString();
-    tasksStore.create(task);
+    await tasksStore.create(task);
     res.status(201).json(task);
   });
 
-  app.put("/api/tasks/:id", requireAuth, (req, res) => {
-    const updated = tasksStore.update(req.params.id, req.body);
+  app.put("/api/tasks/:id", requireAuth, async (req, res) => {
+    const updated = await tasksStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Tarefa não encontrada" });
     res.json(updated);
   });
 
-  app.delete("/api/tasks/:id", requireAuth, (req, res) => {
-    const deleted = tasksStore.delete(req.params.id);
+  app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
+    const deleted = await tasksStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Tarefa não encontrada" });
     res.json({ success: true });
   });
 
   // Notes CRUD
-  app.get("/api/notes", requireAuth, (req, res) => {
-    res.json({ notes: notesStore.getAll() });
+  app.get("/api/notes", requireAuth, async (req, res) => {
+    const notes = await notesStore.getAll();
+    res.json({ notes });
   });
 
-  app.post("/api/notes", requireAuth, (req, res) => {
+  app.post("/api/notes", requireAuth, async (req, res) => {
     const note = req.body;
     if (!note.id) note.id = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!note.createdAt) note.createdAt = new Date().toISOString();
     note.updatedAt = new Date().toISOString();
-    notesStore.create(note);
+    await notesStore.create(note);
     res.status(201).json(note);
   });
 
-  app.put("/api/notes/:id", requireAuth, (req, res) => {
-    const updated = notesStore.update(req.params.id, req.body);
+  app.put("/api/notes/:id", requireAuth, async (req, res) => {
+    const updated = await notesStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Nota não encontrada" });
     res.json(updated);
   });
 
-  app.delete("/api/notes/:id", requireAuth, (req, res) => {
-    const deleted = notesStore.delete(req.params.id);
+  app.delete("/api/notes/:id", requireAuth, async (req, res) => {
+    const deleted = await notesStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Nota não encontrada" });
     res.json({ success: true });
   });
 
   // Projects CRUD
-  app.get("/api/projects", requireAuth, (req, res) => {
-    res.json({ projects: projectsStore.getAll() });
+  app.get("/api/projects", requireAuth, async (req, res) => {
+    const projects = await projectsStore.getAll();
+    res.json({ projects });
   });
 
-  app.post("/api/projects", requireAuth, (req, res) => {
+  app.post("/api/projects", requireAuth, async (req, res) => {
     const project = req.body;
     if (!project.id) project.id = `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!project.createdAt) project.createdAt = new Date().toISOString();
     project.updatedAt = new Date().toISOString();
-    projectsStore.create(project);
+    await projectsStore.create(project);
     res.status(201).json(project);
   });
 
-  app.put("/api/projects/:id", requireAuth, (req, res) => {
-    const updated = projectsStore.update(req.params.id, req.body);
+  app.put("/api/projects/:id", requireAuth, async (req, res) => {
+    const updated = await projectsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Projeto não encontrado" });
     res.json(updated);
   });
 
-  app.delete("/api/projects/:id", requireAuth, (req, res) => {
-    const deleted = projectsStore.delete(req.params.id);
+  app.delete("/api/projects/:id", requireAuth, async (req, res) => {
+    const deleted = await projectsStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Projeto não encontrado" });
     res.json({ success: true });
   });
 
   // Tags CRUD
-  app.get("/api/tags", requireAuth, (req, res) => {
-    res.json({ tags: tagsStore.getAll() });
+  app.get("/api/tags", requireAuth, async (req, res) => {
+    const tags = await tagsStore.getAll();
+    res.json({ tags });
   });
 
-  app.post("/api/tags", requireAuth, (req, res) => {
+  app.post("/api/tags", requireAuth, async (req, res) => {
     const tag = req.body;
     if (!tag.id) tag.id = `tag_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!tag.createdAt) tag.createdAt = new Date().toISOString();
-    tagsStore.create(tag);
+    await tagsStore.create(tag);
     res.status(201).json(tag);
   });
 
-  app.put("/api/tags/:id", requireAuth, (req, res) => {
-    const updated = tagsStore.update(req.params.id, req.body);
+  app.put("/api/tags/:id", requireAuth, async (req, res) => {
+    const updated = await tagsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Tag não encontrada" });
     res.json(updated);
   });
 
-  app.delete("/api/tags/:id", requireAuth, (req, res) => {
-    const deleted = tagsStore.delete(req.params.id);
+  app.delete("/api/tags/:id", requireAuth, async (req, res) => {
+    const deleted = await tagsStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Tag não encontrada" });
     res.json({ success: true });
   });
 
   // Events (Calendar) CRUD
-  app.get("/api/events", requireAuth, (req, res) => {
-    res.json({ events: eventsStore.getAll() });
+  app.get("/api/events", requireAuth, async (req, res) => {
+    const events = await eventsStore.getAll();
+    res.json({ events });
   });
 
-  app.post("/api/events", requireAuth, (req, res) => {
+  app.post("/api/events", requireAuth, async (req, res) => {
     const event = req.body;
     if (!event.id) event.id = `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!event.createdAt) event.createdAt = new Date().toISOString();
     event.updatedAt = new Date().toISOString();
-    eventsStore.create(event);
+    await eventsStore.create(event);
     res.status(201).json(event);
   });
 
-  app.put("/api/events/:id", requireAuth, (req, res) => {
-    const updated = eventsStore.update(req.params.id, req.body);
+  app.put("/api/events/:id", requireAuth, async (req, res) => {
+    const updated = await eventsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Evento não encontrado" });
     res.json(updated);
   });
 
-  app.delete("/api/events/:id", requireAuth, (req, res) => {
-    const deleted = eventsStore.delete(req.params.id);
+  app.delete("/api/events/:id", requireAuth, async (req, res) => {
+    const deleted = await eventsStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Evento não encontrado" });
     res.json({ success: true });
   });
 
   // Emails CRUD
-  app.get("/api/emails", requireAuth, (req, res) => {
-    res.json({ emails: emailsStore.getAll() });
+  app.get("/api/emails", requireAuth, async (req, res) => {
+    const emails = await emailsStore.getAll();
+    res.json({ emails });
   });
 
-  app.post("/api/emails", requireAuth, (req, res) => {
+  app.post("/api/emails", requireAuth, async (req, res) => {
     const email = req.body;
     if (!email.id) email.id = `email_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!email.createdAt) email.createdAt = new Date().toISOString();
     email.updatedAt = new Date().toISOString();
-    emailsStore.create(email);
+    await emailsStore.create(email);
     res.status(201).json(email);
   });
 
-  app.put("/api/emails/:id", requireAuth, (req, res) => {
-    const updated = emailsStore.update(req.params.id, req.body);
+  app.put("/api/emails/:id", requireAuth, async (req, res) => {
+    const updated = await emailsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Email não encontrado" });
     res.json(updated);
   });
 
-  app.delete("/api/emails/:id", requireAuth, (req, res) => {
-    const deleted = emailsStore.delete(req.params.id);
+  app.delete("/api/emails/:id", requireAuth, async (req, res) => {
+    const deleted = await emailsStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Email não encontrado" });
     res.json({ success: true });
   });
 
   // Drive Files CRUD
-  app.get("/api/drive-files", requireAuth, (req, res) => {
-    res.json({ files: driveFilesStore.getAll() });
+  app.get("/api/drive-files", requireAuth, async (req, res) => {
+    const files = await driveFilesStore.getAll();
+    res.json({ files });
   });
 
-  app.post("/api/drive-files", requireAuth, (req, res) => {
+  app.post("/api/drive-files", requireAuth, async (req, res) => {
     const file = req.body;
     if (!file.id) file.id = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!file.createdAt) file.createdAt = new Date().toISOString();
     file.updatedAt = new Date().toISOString();
-    driveFilesStore.create(file);
+    await driveFilesStore.create(file);
     res.status(201).json(file);
   });
 
-  app.put("/api/drive-files/:id", requireAuth, (req, res) => {
-    const updated = driveFilesStore.update(req.params.id, req.body);
+  app.put("/api/drive-files/:id", requireAuth, async (req, res) => {
+    const updated = await driveFilesStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Arquivo não encontrado" });
     res.json(updated);
   });
 
-  app.delete("/api/drive-files/:id", requireAuth, (req, res) => {
-    const deleted = driveFilesStore.delete(req.params.id);
+  app.delete("/api/drive-files/:id", requireAuth, async (req, res) => {
+    const deleted = await driveFilesStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Arquivo não encontrado" });
     res.json({ success: true });
   });
 
   // Useful Links CRUD
-  app.get("/api/useful-links", requireAuth, (req, res) => {
-    res.json({ links: usefulLinksStore.getAll() });
+  app.get("/api/useful-links", requireAuth, async (req, res) => {
+    const links = await usefulLinksStore.getAll();
+    res.json({ links });
   });
 
-  app.post("/api/useful-links", requireAuth, (req, res) => {
+  app.post("/api/useful-links", requireAuth, async (req, res) => {
     const link = req.body;
     if (!link.id) link.id = `link_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!link.createdAt) link.createdAt = new Date().toISOString();
     link.updatedAt = new Date().toISOString();
-    usefulLinksStore.create(link);
+    await usefulLinksStore.create(link);
     res.status(201).json(link);
   });
 
-  app.put("/api/useful-links/:id", requireAuth, (req, res) => {
-    const updated = usefulLinksStore.update(req.params.id, req.body);
+  app.put("/api/useful-links/:id", requireAuth, async (req, res) => {
+    const updated = await usefulLinksStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Link não encontrado" });
     res.json(updated);
   });
 
-  app.delete("/api/useful-links/:id", requireAuth, (req, res) => {
-    const deleted = usefulLinksStore.delete(req.params.id);
+  app.delete("/api/useful-links/:id", requireAuth, async (req, res) => {
+    const deleted = await usefulLinksStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Link não encontrado" });
     res.json({ success: true });
   });
 
   // Inbox CRUD
-  app.get("/api/inbox", requireAuth, (req, res) => {
-    res.json({ items: inboxStore.getAll() });
+  app.get("/api/inbox", requireAuth, async (req, res) => {
+    const items = await inboxStore.getAll();
+    res.json({ items });
   });
 
-  app.post("/api/inbox", requireAuth, (req, res) => {
+  app.post("/api/inbox", requireAuth, async (req, res) => {
     const item = req.body;
     if (!item.id) item.id = `inbox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!item.createdAt) item.createdAt = new Date().toISOString();
     item.updatedAt = new Date().toISOString();
-    inboxStore.create(item);
+    await inboxStore.create(item);
     res.status(201).json(item);
   });
 
-  app.put("/api/inbox/:id", requireAuth, (req, res) => {
-    const updated = inboxStore.update(req.params.id, req.body);
+  app.put("/api/inbox/:id", requireAuth, async (req, res) => {
+    const updated = await inboxStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Item não encontrado" });
     res.json(updated);
   });
 
-  app.delete("/api/inbox/:id", requireAuth, (req, res) => {
-    const deleted = inboxStore.delete(req.params.id);
+  app.delete("/api/inbox/:id", requireAuth, async (req, res) => {
+    const deleted = await inboxStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Item não encontrado" });
     res.json({ success: true });
   });
 
   // Activity Logs CRUD
-  app.get("/api/activity-logs", requireAuth, (req, res) => {
-    res.json({ logs: activityLogsStore.getAll() });
+  app.get("/api/activity-logs", requireAuth, async (req, res) => {
+    const logs = await activityLogsStore.getAll();
+    res.json({ logs });
   });
 
-  app.post("/api/activity-logs", requireAuth, (req, res) => {
+  app.post("/api/activity-logs", requireAuth, async (req, res) => {
     const log = req.body;
     if (!log.id) log.id = `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!log.createdAt) log.createdAt = new Date().toISOString();
-    activityLogsStore.create(log);
+    await activityLogsStore.create(log);
     res.status(201).json(log);
   });
 
   // Notifications CRUD
-  app.get("/api/notifications", requireAuth, (req, res) => {
-    res.json({ notifications: notificationsStore.getAll() });
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    const notifications = await notificationsStore.getAll();
+    res.json({ notifications });
   });
 
-  app.put("/api/notifications/:id", requireAuth, (req, res) => {
-    const updated = notificationsStore.update(req.params.id, req.body);
+  app.put("/api/notifications/:id", requireAuth, async (req, res) => {
+    const updated = await notificationsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Notificação não encontrada" });
     res.json(updated);
   });
 
   // Chat Messages CRUD
-  app.get("/api/chat-messages", requireAuth, (req, res) => {
-    res.json({ messages: chatMessagesStore.getAll() });
+  app.get("/api/chat-messages", requireAuth, async (req, res) => {
+    const messages = await chatMessagesStore.getAll();
+    res.json({ messages });
   });
 
-  app.post("/api/chat-messages", requireAuth, (req, res) => {
+  app.post("/api/chat-messages", requireAuth, async (req, res) => {
     const message = req.body;
     if (!message.id) message.id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!message.createdAt) message.createdAt = new Date().toISOString();
-    chatMessagesStore.create(message);
+    await chatMessagesStore.create(message);
     res.status(201).json(message);
   });
 
-  // Initialize stores from localStorage on startup
-  initializeStoresFromLocalStorage();
-
-  app.post("/api/auth/logout", (req, res) => {
+  // Initialize database tables on startup
+  try {
+    await initializeDatabase();
+    console.log('[DB] Banco de dados inicializado com sucesso');
+  } catch (error) {
+    console.error('[DB] Erro ao inicializar banco de dados:', error);
+  }
     res.setHeader("Set-Cookie", clearSessionCookie());
     res.redirect(303, "/");
   });
@@ -2156,6 +2172,15 @@ ${message}`;
       res.status(500).json({ error: "Erro ao definir a localização padrão: " + error.message });
     }
   });
+
+  // Inicializa o banco de dados antes de iniciar o servidor
+  try {
+    await initializeDatabase();
+    console.log('[DB] Banco de dados inicializado com sucesso');
+  } catch (error) {
+    console.error('[DB] Erro ao inicializar banco de dados:', error);
+    process.exit(1);
+  }
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`NuRa Server running on http://0.0.0.0:${PORT}`);
