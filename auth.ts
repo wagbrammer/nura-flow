@@ -3,9 +3,10 @@
  * --------------------------------------------------------------
  * Este módulo é consumido por `server.ts` e pelo `worker.ts`.
  *
- * - Cria/valida cookies de sessão (HTTP-only, SameSite=Strict)
- * - Verifica senhas usando PBKDF2-SHA256
- * - Renderiza a página HTML de login
+ * • Cria/valida cookies de sessão (HTTP-only, SameSite=Strict)
+ * • Verifica senhas usando PBKDF2-SHA256 (formato "algorithm$iters$salt$hash")
+ * • Renderiza a página HTML de login (com suporte a logo opcional)
+ * • Permite "bypass" temporário de autenticação via var env `SKIP_AUTH`
  */
 
 // crypto é built-in do Node 20 (Web Crypto API global)
