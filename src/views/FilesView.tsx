@@ -20,22 +20,12 @@ import {
 import { TagBadge } from '../components/common/TagBadge';
 import { formatDateBR } from '../lib/date';
 
-interface DriveFile {
-  id: string;
-  name: string;
-  type: 'spreadsheet' | 'presentation' | 'document' | 'image' | 'pdf' | 'other';
-  size: string;
-  lastModified: string;
-  url: string;
-  meetingId?: string;
-  tags: string[];
-  description?: string;
-}
+import type { DriveReference } from '../types';
 
 export const FilesView: React.FC = () => {
   const { driveFiles, meetings, tags, saveDriveFiles } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingFile, setEditingFile] = useState<DriveFile | null>(null);
+  const [editingFile, setEditingFile] = useState<DriveReference | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,10 +44,11 @@ export const FilesView: React.FC = () => {
 
   const getFileIcon = (type: string) => {
     switch (type) {
-      case 'spreadsheet':
+      case 'sheet':
         return <FileSpreadsheet className="w-5 h-5 text-emerald-600" />;
-      case 'presentation':
-      case 'document':
+      case 'slide':
+        return <FileText className="w-5 h-5 text-blue-600" />;
+      case 'doc':
         return <FileText className="w-5 h-5 text-blue-600" />;
       case 'image':
         return <Image className="w-5 h-5 text-purple-600" />;
@@ -73,20 +64,20 @@ export const FilesView: React.FC = () => {
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
-    const newFiles: DriveFile[] = [];
+    const newFiles: DriveReference[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const ext = file.name.split('.').pop()?.toLowerCase() || 'other';
-      let type: DriveFile['type'] = 'other';
+      let type: DriveReference['type'] = 'other';
 
-      if (['xls', 'xlsx', 'csv'].includes(ext)) type = 'spreadsheet';
-      else if (['ppt', 'pptx'].includes(ext)) type = 'presentation';
-      else if (['doc', 'docx'].includes(ext)) type = 'document';
+      if (['xls', 'xlsx', 'csv'].includes(ext)) type = 'sheet';
+      else if (['ppt', 'pptx'].includes(ext)) type = 'slide';
+      else if (['doc', 'docx'].includes(ext)) type = 'doc';
       else if (['pdf'].includes(ext)) type = 'pdf';
       else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) type = 'image';
 
-      const newFile: DriveFile = {
+      const newFile: DriveReference = {
         id: `file_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
         name: file.name,
         type,
@@ -105,7 +96,7 @@ export const FilesView: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const startEdit = (file: DriveFile) => {
+  const startEdit = (file: DriveReference) => {
     setEditingFile(file);
     setEditForm({
       name: file.name,
@@ -123,7 +114,7 @@ export const FilesView: React.FC = () => {
   const saveEdit = async () => {
     if (!editingFile) return;
 
-    const updatedFile: DriveFile = {
+    const updatedFile: DriveReference = {
       ...editingFile,
       name: editForm.name,
       description: editForm.description || undefined,

@@ -303,13 +303,14 @@ export interface EmailReference {
 export interface DriveReference {
   id: string;
   name: string;
-  type: 'pdf' | 'doc' | 'sheet' | 'slide' | 'image' | 'video' | 'audio' | 'other';
+  type: 'sheet' | 'slide' | 'doc' | 'image' | 'pdf' | 'video' | 'audio' | 'other';
   size: string;
-  url: string;
   lastModified: string;
+  url: string;
   projectId?: string;
   meetingId?: string;
   tags: string[];
+  description?: string;
 }
 
 export type UsefulLinkLocation = 'web' | 'local';
