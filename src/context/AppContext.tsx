@@ -246,10 +246,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
-  // Theme persistence
+  // Theme persistence + apply to DOM
   useEffect(() => {
     localStorage.setItem('nura_theme', JSON.stringify(theme));
+    if (typeof document === 'undefined') return;
+    const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark);
   }, [theme]);
+
+  // Apply initial theme on mount
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const saved = localStorage.getItem('nura_theme');
+    const t: 'light' | 'dark' | 'auto' = saved ? JSON.parse(saved) : 'auto';
+    const isDark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, []);
 
   // Helper: sync save to both localStorage and server
   const syncSave = async (key: string, storageFn: (data: any) => void, data: any[]) => {
