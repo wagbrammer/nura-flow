@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && node scripts/prepare-sites-dist.mjs && esbuild worker.ts --bundle --platform=browser --format=esm --sourcemap --outfile=dist/server/index.js && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && node scripts/prepare-sites-dist.mjs && esbuild worker.ts --bundle --platform=browser --format=esm --sourcemap --packages=external --outfile=dist/server/index.js && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs --production",
     "preview": "vite preview",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
