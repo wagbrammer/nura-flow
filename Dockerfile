@@ -20,7 +20,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=base /app/server.ts ./server.ts
 COPY --from=base /app/package*.json ./
 COPY --from=base /app/.env* ./
-COPY --from=base /app/scripts ./scripts
+COPY --from=build /app/scripts ./scripts
 
 EXPOSE 3000
 ENV NODE_ENV=production
