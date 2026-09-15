@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Multi‑stage Dockerfile – Render ready
+# Multi-stage Dockerfile – Render ready
 # ------------------------------------------------------------
 
 # ---------- 1️⃣ Base (apenas dependências de produção) ----------
@@ -28,7 +28,7 @@ COPY --from=base /app/node_modules ./node_modules
 
 # 2) Artefatos do build (frontend + backend bundle)
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/server ./server
+COPY --from=build /app/dist/server.cjs ./server.cjs
 
 # 3) Configurações e scripts auxiliares
 COPY --from=build /app/package*.json ./
