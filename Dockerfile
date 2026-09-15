@@ -1,41 +1,47 @@
-# ============================================================
-# Multi‑stage Dockerfile – otimizado para Render
-# ============================================================
+# ------------------------------------------------------------
+# Dockerfile – Render‑ready (Multi‑stage)
+# ------------------------------------------------------------
+# 1️⃣ Base – apenas dependências de produção
 FROM node:20-slim AS base
 WORKDIR /app
 COPY package*.json ./
-# Instala apenas dependências de produção
-RUN npm ci --omit=dev 2>/dev/null || npm ci
+RUN npm ci --omit=dev 2>/dev/null || npm ci   # instala prod deps
 
-# ---- Fase de build ----
+# ------------------------------------------------------------
+# 2️⃣ Build – precisa de devDependencies (vite, esbuild, etc.)
+# ------------------------------------------------------------
 FROM base AS build
-RUN npm ci
-COPY . .
-RUN npm run build   # gera dist/ + server.cjs
+RUN npm ci                                 # instala tudo (dev + prod)
+COPY . .                                    # copia código fonte
+RUN npm run build                           # gera dist/ + dist/server.cjs
 
-# ---- Fase de produção ----
+# ------------------------------------------------------------
+# 3️⃣ Production – apenas o que realmente será usado
+# ------------------------------------------------------------
 FROM node:20-slim AS production
 WORKDIR /app
 
-# 1) node_modules de produção (já otimizados na base)
+# 1) Dependências de produção (já otimizadas)
 COPY --from=base /app/node_modules ./node_modules
 
-# 2) Resultados do build
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/server.cjs ./server.cjs
+# 2) Artefatos do build
+COPY --from=build /app/dist ./dist                 # frontend estático
+COPY --from=build /app/dist/server.cjs ./server.cjs   # bundle do backend
 
-# 3) Configurações e scripts
+# 3) Configurações e scripts auxiliares
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/.env* ./
 COPY --from=build /app/scripts ./scripts
 
-# 4) Pasta de dados necessária pelas rotas de API
-RUN mkdir -p /app/server/data   # ← Cria diretório se não existir
+# 4) Diretório que o código usa para gravar JSONs (meetings, tasks, …)
+RUN mkdir -p /app/server/data
 
-# 5) Expondo porta
+# 5) Expor a porta que o Render espera (3000 padrão)
 EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# 6) Iniciar aplicação
+# ------------------------------------------------------------
+# 6️⃣ Entrypoint – executa o bundle compilado
+# ------------------------------------------------------------
 CMD ["node", "server.cjs", "--production"]
