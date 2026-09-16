@@ -88,8 +88,10 @@ export const ChatView: React.FC = () => {
       try {
         const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
         const data = await res.json();
+        console.log('📊 Status do Google:', data);
         setGoogleConnected(data?.googleConnected || false);
-      } catch {
+      } catch (err) {
+        console.error('Erro ao verificar status do Google:', err);
         setGoogleConnected(false);
       }
     };
@@ -98,16 +100,30 @@ export const ChatView: React.FC = () => {
 
   // Fetch Google Chat spaces
   useEffect(() => {
-    if (!googleConnected) return;
+    if (!googleConnected) {
+      console.log('⏸️ Google não conectado, pulando busca de espaços');
+      return;
+    }
 
+    console.log('🔍 Buscando espaços do Google Chat...');
     setLoadingSpaces(true);
     fetch('/api/google/chat/spaces', { credentials: 'same-origin' })
-      .then(res => res.json())
+      .then(res => {
+        console.log('📡 Resposta da API de espaços:', res.status, res.statusText);
+        return res.json();
+      })
       .then(data => {
+        console.log('📦 Dados recebidos:', data);
         const spaces: GoogleSpace[] = data.spaces || [];
         setGoogleSpaces(spaces);
+        if (spaces.length === 0) {
+          console.log('⚠️ Nenhum espaço encontrado - verifique as permissões do OAuth');
+        }
       })
-      .catch(err => console.error('Erro ao buscar espaços:', err))
+      .catch(err => {
+        console.error('❌ Erro ao buscar espaços:', err);
+        alert('Erro ao carregar salas: ' + (err.message || 'Verifique o console para mais detalhes'));
+      })
       .finally(() => setLoadingSpaces(false));
   }, [googleConnected]);
 
@@ -131,15 +147,19 @@ export const ChatView: React.FC = () => {
     setShowDMPanel(true);
     if (dmContacts.length > 0) return;
 
+    console.log('🔍 Buscando contatos para DM...');
     setDmLoadingContacts(true);
     try {
       const res = await fetch('/api/google/chat/contacts', {
         credentials: 'same-origin'
       });
+      console.log('📡 Resposta da API de contatos:', res.status);
       const data = await res.json();
+      console.log('📦 Contatos recebidos:', data);
       setDmContacts(data.contacts || []);
     } catch (err) {
-      console.error('Erro ao buscar contatos:', err);
+      console.error('❌ Erro ao buscar contatos:', err);
+      alert('Erro ao carregar contatos: ' + (err as Error).message);
     } finally {
       setDmLoadingContacts(false);
     }
