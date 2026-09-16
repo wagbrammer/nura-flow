@@ -1353,8 +1353,6 @@ async function startServer() {
   });
 
   // Send direct message to a user via Google Chat API
-  // NOTE: Google Chat API does not allow creating new DMs programmatically for security reasons.
-  // Users must have an existing conversation or open Chat directly.
   app.post("/api/google/chat/send-dm", requireAuth, async (req, res) => {
     const { targetUserEmail, text, spaceId } = req.body;
     if (!text) {
@@ -1370,9 +1368,10 @@ async function startServer() {
         return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
       }
 
-      // If spaceId provided (existing DM), send directly
+      const chat = google.chat({ version: 'v1', auth: client });
+
+      // If spaceId provided (existing DM or room), send directly
       if (spaceId) {
-        const chat = google.chat({ version: 'v1', auth: client });
         const messageResponse = await Promise.race([
           chat.spaces.messages.create({
             parent: `spaces/${spaceId}`,
@@ -1380,15 +1379,47 @@ async function startServer() {
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
         ]);
-        console.log(`✅ Mensagem enviada para DM ${spaceId}`);
+        console.log(`✅ Mensagem enviada para espaço ${spaceId}`);
         return res.json({ success: true, messageId: (messageResponse as any).data?.name });
       }
 
-      // No existing space - cannot create new DMs via API (Google limitation)
-      return res.status(400).json({
-        error: "É necessário ter uma conversa existente com este contato. Abra o Google Chat e inicie uma conversa com este contato, depois tente novamente.",
-        userEmail: targetUserEmail
-      });
+      // Try to create a new DM space
+      // Note: This may fail if the user is not in your contacts or if organizational policies prevent it
+      try {
+        const dmSpace = await Promise.race([
+          (chat.spaces.create as any)({
+            requestBody: {
+              spaceType: 'DM',
+              title: `Conversa com ${targetUserEmail}`,
+            }
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+
+        const spaceName = (dmSpace as any).data?.name;
+        if (!spaceName) {
+          throw new Error('Não foi possível criar o espaço DM');
+        }
+
+        // Send the message
+        const messageResponse = await Promise.race([
+          chat.spaces.messages.create({
+            parent: spaceName,
+            requestBody: { text }
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+
+        console.log(`✅ DM criado e mensagem enviada para ${targetUserEmail}`);
+        return res.json({ success: true, messageId: (messageResponse as any).data?.name, spaceId: spaceName.split('/').pop() });
+      } catch (createError: any) {
+        // If we can't create a DM, return a helpful error
+        console.error('Erro ao criar DM:', createError.message);
+        return res.status(400).json({
+          error: `Não foi possível criar conversa direta automaticamente. Erro: ${createError.message}. Abra o Google Chat e inicie uma conversa com ${targetUserEmail}.`,
+          userEmail: targetUserEmail
+        });
+      }
     } catch (error: any) {
       console.error("Erro ao enviar DM:", error.message);
       res.status(500).json({ error: error.message || "Erro ao enviar mensagem" });

@@ -8,7 +8,8 @@ import {
   ExternalLink,
   Loader2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { formatRelativeTimeBR } from '../lib/date';
 import { ChatMessage } from '../types';
@@ -162,8 +163,45 @@ export const ChatView: React.FC = () => {
     window.open(url, '_blank');
   };
 
-  const handleOpenDM = () => {
-    window.open('https://chat.google.com', '_blank');
+  const [showDMInput, setShowDMInput] = useState(false);
+  const [dmEmail, setDmEmail] = useState('');
+  const [dmText, setDmText] = useState('');
+  const [sendingDM, setSendingDM] = useState(false);
+  const [dmError, setDmError] = useState<string | null>(null);
+
+  const handleSendDM = async () => {
+    if (!dmText.trim() || !dmEmail.trim()) return;
+
+    setSendingDM(true);
+    setDmError(null);
+
+    try {
+      const res = await fetch('/api/google/chat/send-dm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          targetUserEmail: dmEmail,
+          text: dmText
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao enviar DM');
+      }
+
+      alert(`✅ Mensagem enviada para ${dmEmail}!`);
+      setDmEmail('');
+      setDmText('');
+      setShowDMInput(false);
+    } catch (err: any) {
+      console.error('Erro ao enviar DM:', err);
+      setDmError(err.message);
+    } finally {
+      setSendingDM(false);
+    }
   };
 
   return (
@@ -200,15 +238,84 @@ export const ChatView: React.FC = () => {
 
           <button
             type="button"
-            onClick={handleOpenDM}
+            onClick={() => setShowDMInput(!showDMInput)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors"
-            title="Abrir Google Chat"
+            title="Enviar mensagem direta"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>Abrir Chat</span>
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Enviar DM</span>
           </button>
         </div>
       </div>
+
+      {/* DM Input Panel */}
+      {showDMInput && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xs p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-purple-600" />
+              Enviar Mensagem Direta
+            </h3>
+            <button
+              onClick={() => setShowDMInput(false)}
+              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+            >
+              <X className="w-4 h-4 text-slate-500" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Email do destinatário
+              </label>
+              <input
+                type="email"
+                value={dmEmail}
+                onChange={e => setDmEmail(e.target.value)}
+                placeholder="nome@empresa.com"
+                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Mensagem
+              </label>
+              <textarea
+                value={dmText}
+                onChange={e => setDmText(e.target.value)}
+                placeholder="Digite sua mensagem..."
+                rows={3}
+                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              />
+            </div>
+
+            {dmError && (
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl">
+                <p className="text-xs text-red-700 dark:text-red-400">{dmError}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowDMInput(false)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSendDM}
+              disabled={!dmText.trim() || !dmEmail.trim() || sendingDM}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendingDM ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Enviar DM
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid: Spaces List + Conversation */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
