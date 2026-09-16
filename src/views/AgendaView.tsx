@@ -272,19 +272,23 @@ export const AgendaView: React.FC = () => {
                     {timeFormatted}
                   </span>
 
-                  {/* Render meetings falling in this time block */}
-                  <div
-                    className="flex-1 grid gap-2"
-                    style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
-                  >
+                {/* Render Google Calendar events falling in this time block */}
+                <div
+                  className="flex-1 grid gap-2"
+                  style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
+                >
                     {visibleDays.map((d, dayIdx) => {
                       const dateStr = d.toISOString().split('T')[0];
                       const slotMeetings = meetings.filter(
                         m => m.date === dateStr && m.startTime.startsWith(hour.toString().padStart(2, '0'))
                       );
+                      const slotGoogleEvents = googleEvents.filter(
+                        e => e.startDate === dateStr && e.startTime.startsWith(hour.toString().padStart(2, '0'))
+                      );
 
                       return (
                         <div key={dayIdx} className="space-y-1">
+                          {/* Render meetings */}
                           {slotMeetings.map(m => {
                             const isSelected = activeMeeting?.id === m.id;
                             const hasMiniAta = Boolean(m.miniAta && m.miniAta.trim().length > 0);
@@ -358,6 +362,44 @@ export const AgendaView: React.FC = () => {
                                     </span>
                                   )}
                                 </div>
+                              </div>
+                            );
+                          })}
+                          {/* Render Google Calendar events */}
+                          {slotGoogleEvents.map(e => {
+                            const isSelected = activeMeeting?.id === e.id;
+                            return (
+                              <div
+                                key={e.id}
+                                onClick={() => setSelectedMeeting({ ...e, id: e.id, miniAta: e.description, startTime: e.startTime, endTime: e.endTime, date: e.startDate })}
+                                className={`p-2 rounded-xl text-left cursor-pointer transition-all border ${
+                                  isSelected
+                                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40'
+                                    : 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100'
+                                }`}
+                              >
+                                <p className="text-[11px] font-bold truncate leading-tight flex items-center gap-1">
+                                  <span className="text-[9px] bg-blue-100 dark:bg-blue-900 px-1 rounded">G</span>
+                                  {e.title}
+                                </p>
+                                <p className={`text-[10px] truncate ${isSelected ? 'text-blue-100' : 'text-blue-400'}`}>
+                                  {e.startTime} - {e.endTime}
+                                </p>
+                                {e.location && (
+                                  <p className="text-[10px] truncate text-blue-400 flex items-center gap-1">
+                                    <span>📍</span> {e.location}
+                                  </p>
+                                )}
+                                {e.meetUrl && (
+                                  <a
+                                    href={e.meetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                                  >
+                                    <ExternalLink className="w-3 h-3" /> Meet
+                                  </a>
+                                )}
                               </div>
                             );
                           })}

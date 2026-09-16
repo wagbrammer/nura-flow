@@ -582,7 +582,7 @@ export const SettingsView: React.FC = () => {
     setGoogleSyncMessage(null);
     try {
       // Buscar eventos do calendário
-      const eventsRes = await fetch('/api/google/calendar/events');
+      const eventsRes = await fetch('/api/google/calendar/events', { credentials: 'same-origin' });
       const eventsData = await eventsRes.json();
       if (eventsData.events && eventsData.events.length > 0) {
         // Salvar eventos no contexto
