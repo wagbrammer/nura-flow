@@ -458,6 +458,7 @@ async function startServer() {
     meeting.updatedAt = new Date().toISOString();
     await meetingsStore.create(meeting);
     // Sync with Google Calendar if configured
+    console.log(`📅 Criando reunião "${meeting.title}" - sync para Google:`, isGoogleConfigured() && storedTokens?.access_token ? 'SIM' : 'NÃO');
     syncMeetingToGoogle(meeting).catch(err => console.error("Erro no sync:", err));
     res.status(201).json(meeting);
   });
@@ -466,6 +467,7 @@ async function startServer() {
     const updated = await meetingsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Reunião não encontrada" });
     // Sync with Google Calendar if configured
+    console.log(`📅 Atualizando reunião "${updated.title}" - sync para Google:`, isGoogleConfigured() && storedTokens?.access_token ? 'SIM' : 'NÃO');
     syncMeetingToGoogle(updated).catch(err => console.error("Erro no sync:", err));
     res.json(updated);
   });
@@ -1148,6 +1150,7 @@ async function startServer() {
       const calendar = google.calendar({ version: 'v3', auth: client });
       const dateTimeStart = `${meeting.date}T${meeting.startTime}:00`;
       const dateTimeEnd = `${meeting.date}T${meeting.endTime}:00`;
+      console.log(`📅 Syncing meeting "${meeting.title}" -> ${dateTimeStart} to ${dateTimeEnd}`);
 
       const event: any = {
         summary: meeting.title,
@@ -1179,11 +1182,14 @@ async function startServer() {
           await meetingsStore.update(meeting.id, { eventId: googleEventId });
           console.log(`✅ Reunião "${meeting.title}" criada no Google Calendar (ID: ${googleEventId})`);
         } else {
-          console.warn(`⚠️ Reunião "${meeting.title}" criada mas eventId não retornado`);
+          console.warn(`⚠️ Reunião "${meeting.title}" criada mas eventId não retornado - result:`, JSON.stringify(result));
         }
       }
     } catch (error: any) {
       console.error(`❌ Erro ao sincronizar "${meeting.title}":`, error.message);
+      if (error.response?.data) {
+        console.error('Detalhes do erro:', JSON.stringify(error.response.data));
+      }
       throw error; // Re-throw so caller knows it failed
     }
   }
