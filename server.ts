@@ -1318,12 +1318,15 @@ async function startServer() {
   // List messages from a Google Chat space
   app.get("/api/google/chat/messages/:spaceId", requireAuth, async (req, res) => {
     const { spaceId } = req.params;
+    console.log(`🔍 Buscando mensagens da sala ${spaceId}...`);
     try {
       if (!isGoogleConfigured()) {
+        console.error("❌ Google não configurado");
         return res.status(503).json({ error: "Google OAuth não configurado" });
       }
       const client = getOAuthClient();
       if (!client || !storedTokens?.access_token) {
+        console.error("❌ Tokens não disponíveis");
         return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
       }
 
@@ -1336,7 +1339,10 @@ async function startServer() {
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
       ]);
 
-      const messages = (response as any).data?.messages || [];
+      const data = (response as any).data;
+      console.log('📦 Resposta da API de mensagens:', JSON.stringify(data, null, 2));
+
+      const messages = data?.messages || [];
       const formattedMessages = messages.map((msg: any) => ({
         id: msg.name?.split('/').pop(),
         text: msg.text || '',
@@ -1352,7 +1358,7 @@ async function startServer() {
       console.log(`✅ Encontradas ${formattedMessages.length} mensagens na sala ${spaceId}`);
       res.json({ messages: formattedMessages });
     } catch (error: any) {
-      console.error("Erro ao buscar mensagens:", error.message);
+      console.error("❌ Erro ao buscar mensagens:", error.message, error.stack);
       res.status(500).json({ error: error.message || "Erro ao buscar mensagens" });
     }
   });

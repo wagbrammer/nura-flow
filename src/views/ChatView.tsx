@@ -37,10 +37,13 @@ export const ChatView: React.FC = () => {
 
   // DM state
   const [showDMInput, setShowDMInput] = useState(false);
-  const [dmEmail, setDmEmail] = useState('');
+  const [dmContacts, setDmContacts] = useState<{ name: string; email: string }[]>([]);
+  const [dmSelectedContact, setDmSelectedContact] = useState<{ name: string; email: string } | null>(null);
   const [dmText, setDmText] = useState('');
   const [sendingDM, setSendingDM] = useState(false);
   const [dmError, setDmError] = useState<string | null>(null);
+  const [dmLoadingContacts, setDmLoadingContacts] = useState(false);
+  const [dmSearchQuery, setDmSearchQuery] = useState('');
 
   // Local chat messages (for history display)
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
@@ -182,8 +185,26 @@ export const ChatView: React.FC = () => {
     setIsSending(false);
   };
 
+  const handleOpenDMPanel = async () => {
+    setShowDMInput(true);
+    if (dmContacts.length > 0) return;
+
+    setDmLoadingContacts(true);
+    try {
+      const res = await fetch('/api/google/chat/contacts', {
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      setDmContacts(data.contacts || []);
+    } catch (err) {
+      console.error('Erro ao buscar contatos:', err);
+    } finally {
+      setDmLoadingContacts(false);
+    }
+  };
+
   const handleSendDM = async () => {
-    if (!dmText.trim() || !dmEmail.trim()) return;
+    if (!dmText.trim() || !dmSelectedContact) return;
 
     setSendingDM(true);
     setDmError(null);
@@ -194,7 +215,7 @@ export const ChatView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
-          targetUserEmail: dmEmail,
+          targetUserEmail: dmSelectedContact.email,
           text: dmText
         })
       });
@@ -205,9 +226,9 @@ export const ChatView: React.FC = () => {
         throw new Error(data.error || 'Erro ao enviar DM');
       }
 
-      alert(`✅ Mensagem enviada para ${dmEmail}!`);
-      setDmEmail('');
+      alert(`✅ Mensagem enviada para ${dmSelectedContact.name}!`);
       setDmText('');
+      setDmSelectedContact(null);
       setShowDMInput(false);
     } catch (err: any) {
       console.error('Erro ao enviar DM:', err);
@@ -256,7 +277,7 @@ export const ChatView: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setShowDMInput(!showDMInput)}
+            onClick={handleOpenDMPanel}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors"
             title="Enviar mensagem direta"
           >
@@ -283,17 +304,60 @@ export const ChatView: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Email do destinatário
-              </label>
-              <input
-                type="email"
-                value={dmEmail}
-                onChange={e => setDmEmail(e.target.value)}
-                placeholder="nome@empresa.com"
-                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Selecione um contato
+                </label>
+                <span className="text-[10px] text-slate-400">{dmContacts.length} contatos</span>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={dmSearchQuery}
+                  onChange={e => setDmSearchQuery(e.target.value)}
+                  placeholder="Buscar contato..."
+                  className="flex-1 bg-transparent text-xs focus:outline-none placeholder-slate-400"
+                />
+              </div>
+              {dmLoadingContacts ? (
+                <div className="flex items-center gap-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  <span className="text-xs text-slate-500">Carregando contatos...</span>
+                </div>
+              ) : dmContacts.length === 0 ? (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Nenhum contato encontrado. O Google só permite enviar DM para contatos que você já tem salvos.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {dmContacts.filter(c =>
+                    c.name.toLowerCase().includes(dmSearchQuery.toLowerCase()) ||
+                    c.email.toLowerCase().includes(dmSearchQuery.toLowerCase())
+                  ).map((contact, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setDmSelectedContact(contact)}
+                      className={`w-full flex items-center gap-2 p-2 rounded-xl border transition-all text-left ${
+                        dmSelectedContact?.email === contact.email
+                          ? 'bg-purple-100 dark:bg-purple-950 border-purple-400 dark:border-purple-700'
+                          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                        {contact.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{contact.name}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{contact.email}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -325,7 +389,7 @@ export const ChatView: React.FC = () => {
             </button>
             <button
               onClick={handleSendDM}
-              disabled={!dmText.trim() || !dmEmail.trim() || sendingDM}
+              disabled={!dmSelectedContact || !dmText.trim() || sendingDM}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sendingDM ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
