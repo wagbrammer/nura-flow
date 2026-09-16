@@ -81,50 +81,52 @@ export const ChatView: React.FC = () => {
     localStorage.setItem('robustec_chat_messages', JSON.stringify(chatMessages));
   }, [chatMessages]);
 
-  // Check Google connection
+  // Fetch Google Chat spaces (on mount and when component focuses)
   useEffect(() => {
-    const checkGoogleConnection = async () => {
+    const fetchSpaces = async () => {
+      console.log('🔍 Buscando espaços do Google Chat...');
+      setLoadingSpaces(true);
+
+      // Check connection first
+      let connected = false;
       try {
-        const res = await fetch('/api/auth/google/status', { credentials: 'same-origin' });
-        const data = await res.json();
-        console.log('📊 Status do Google:', data);
-        setGoogleConnected(data?.googleConnected || false);
+        const statusRes = await fetch('/api/auth/google/status', { credentials: 'same-origin' });
+        const statusData = await statusRes.json();
+        console.log('📊 Status do Google:', statusData);
+        connected = statusData?.connected || false;
+        setGoogleConnected(connected);
       } catch (err) {
         console.error('Erro ao verificar status do Google:', err);
-        setGoogleConnected(false);
       }
+
+      if (!connected) {
+        console.log('⏸️ Google não conectado, pulando busca de espaços');
+        setLoadingSpaces(false);
+        return;
+      }
+
+      // Fetch spaces
+      fetch('/api/google/chat/spaces', { credentials: 'same-origin' })
+        .then(res => {
+          console.log('📡 Resposta da API de espaços:', res.status, res.statusText);
+          return res.json();
+        })
+        .then(data => {
+          console.log('📦 Dados recebidos:', data);
+          const spaces: GoogleSpace[] = data.spaces || [];
+          setGoogleSpaces(spaces);
+          if (spaces.length === 0) {
+            console.log('⚠️ Nenhum espaço encontrado');
+          }
+        })
+        .catch(err => {
+          console.error('❌ Erro ao buscar espaços:', err);
+        })
+        .finally(() => setLoadingSpaces(false));
     };
-    checkGoogleConnection();
+
+    fetchSpaces();
   }, []);
-
-  // Fetch Google Chat spaces
-  useEffect(() => {
-    if (!googleConnected) {
-      console.log('⏸️ Google não conectado, pulando busca de espaços');
-      return;
-    }
-
-    console.log('🔍 Buscando espaços do Google Chat...');
-    setLoadingSpaces(true);
-    fetch('/api/google/chat/spaces', { credentials: 'same-origin' })
-      .then(res => {
-        console.log('📡 Resposta da API de espaços:', res.status, res.statusText);
-        return res.json();
-      })
-      .then(data => {
-        console.log('📦 Dados recebidos:', data);
-        const spaces: GoogleSpace[] = data.spaces || [];
-        setGoogleSpaces(spaces);
-        if (spaces.length === 0) {
-          console.log('⚠️ Nenhum espaço encontrado - verifique as permissões do OAuth');
-        }
-      })
-      .catch(err => {
-        console.error('❌ Erro ao buscar espaços:', err);
-        alert('Erro ao carregar salas: ' + (err.message || 'Verifique o console para mais detalhes'));
-      })
-      .finally(() => setLoadingSpaces(false));
-  }, [googleConnected]);
 
   const filteredSpaces = googleSpaces.filter(s =>
     s.displayName.toLowerCase().includes(searchQuery.toLowerCase())
