@@ -815,6 +815,8 @@ async function startServer() {
       'https://www.googleapis.com/auth/calendar',              // Leitura e escrita no calendário
       'https://www.googleapis.com/auth/contacts.readonly',     // Ler contatos do Google
       'https://www.googleapis.com/auth/contacts',              // Ler e escrever contatos
+      'https://www.googleapis.com/auth/chat.messages.create',  // Enviar mensagens no Google Chat
+      'https://www.googleapis.com/auth/chat.spaces.read',      // Listar espaços/salas
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/drive.readonly'
     ];
@@ -1164,6 +1166,48 @@ async function startServer() {
     }
   });
 
+  // Google Chat: Send message to contact (DM) or room
+  app.post("/api/google/chat/send", requireAuth, async (req, res) => {
+    try {
+      if (!isGoogleConfigured()) {
+        return res.status(503).json({ error: "Google OAuth não configurado" });
+      }
+      const client = getOAuthClient();
+      if (!client || !storedTokens?.access_token) {
+        return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
+      }
+
+      const { roomId, text, mentions } = req.body;
+      if (!text) return res.status(400).json({ error: "Mensagem vazia" });
+
+      const chat = google.chat({ version: 'v1', auth: client });
+
+      // Build message with optional mentions
+      let message: any = { text };
+      if (mentions && mentions.length > 0) {
+        message.carbonCopy = mentions;
+      }
+
+      // Send to room or use webhook URL if provided
+      if (roomId) {
+        const response = await Promise.race([
+          chat.spaces.messages.create({
+            parent: `spaces/${roomId}`,
+            requestBody: message,
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+        console.log(`✅ Mensagem enviada para sala ${roomId}`);
+        res.json({ success: true, messageId: (response as any).data?.name });
+      } else {
+        res.status(400).json({ error: "roomId é obrigatório para enviar mensagem" });
+      }
+    } catch (error: any) {
+      console.error("❌ Erro ao enviar mensagem:", error.message);
+      res.status(500).json({ error: error.message || "Erro ao enviar mensagem" });
+    }
+  });
+
   // Google Contacts Endpoint
   app.get("/api/google/contacts", async (req, res) => {
     try {
@@ -1191,7 +1235,7 @@ async function startServer() {
         timeoutPromise
       ]);
 
-      const connections = response.data.connections || [];
+      const connections = (response as any).data?.connections || [];
       console.log(`✅ Encontrados ${connections.length} contatos no Google`);
 
       const formattedContacts = connections.map((person: any) => {
@@ -1217,6 +1261,156 @@ async function startServer() {
         });
       }
       res.status(500).json({ error: error.message || "Erro ao buscar contatos" });
+    }
+  });
+
+  // List available Google Chat spaces (rooms)
+  app.get("/api/google/chat/spaces", requireAuth, async (req, res) => {
+    try {
+      if (!isGoogleConfigured()) {
+        return res.status(503).json({ error: "Google OAuth não configurado" });
+      }
+      const client = getOAuthClient();
+      if (!client || !storedTokens?.access_token) {
+        return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
+      }
+
+      const chat = google.chat({ version: 'v1', auth: client });
+      const response = await Promise.race([
+        chat.spaces.list({
+          pageSize: 50,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      ]);
+
+      const spaces = (response as any).data?.spaces || [];
+      const formattedSpaces = spaces.map((space: any) => ({
+        name: space.name,
+        displayName: space.displayName || space.spaceType,
+        spaceType: space.spaceType,
+        spaceId: space.name?.split('/').pop(),
+        dmDetails: space.dmDetails,
+      }));
+
+      console.log(`✅ Encontrados ${formattedSpaces.length} espaços no Google Chat`);
+      res.json({ spaces: formattedSpaces });
+    } catch (error: any) {
+      console.error("Erro ao buscar espaços:", error.message);
+      res.status(500).json({ error: error.message || "Erro ao buscar espaços" });
+    }
+  });
+
+  // Search for a user by email to get their resource name (for DMs)
+  app.get("/api/google/chat/search-user", requireAuth, async (req, res) => {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: "Email é obrigatório" });
+
+    try {
+      if (!isGoogleConfigured()) {
+        return res.status(503).json({ error: "Google OAuth não configurado" });
+      }
+      const client = getOAuthClient();
+      if (!client || !storedTokens?.access_token) {
+        return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
+      }
+
+      const people = google.people({ version: 'v1', auth: client });
+      const response = await Promise.race([
+        (people.people.searchContacts as any)({
+          query: email as string,
+          pageSize: 5,
+          personFields: 'names,emailAddresses,resourceName',
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      ]);
+
+      const contacts = (response as any).data?.contacts || [];
+      const contact = contacts.find((c: any) =>
+        c.emailAddresses?.some((e: any) => e.value.toLowerCase() === (email as string).toLowerCase())
+      );
+
+      if (contact) {
+        res.json({
+          success: true,
+          resourceName: contact.resourceName,
+          name: contact.names?.[0]?.displayName,
+          email: contact.emailAddresses?.[0]?.value
+        });
+      } else {
+        res.json({ success: false, error: "Usuário não encontrado" });
+      }
+    } catch (error: any) {
+      console.error("Erro ao buscar usuário:", error.message);
+      res.status(500).json({ error: error.message || "Erro ao buscar usuário" });
+    }
+  });
+
+  // Send direct message to a user via Google Chat API
+  app.post("/api/google/chat/send-dm", requireAuth, async (req, res) => {
+    const { targetUserEmail, text } = req.body;
+    if (!targetUserEmail || !text) {
+      return res.status(400).json({ error: "targetUserEmail e text são obrigatórios" });
+    }
+
+    try {
+      if (!isGoogleConfigured()) {
+        return res.status(503).json({ error: "Google OAuth não configurado" });
+      }
+      const client = getOAuthClient();
+      if (!client || !storedTokens?.access_token) {
+        return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
+      }
+
+      // First, find the user's resource name
+      const people = google.people({ version: 'v1', auth: client });
+      const searchResponse = await Promise.race([
+        (people.people.searchContacts as any)({
+          query: targetUserEmail,
+          pageSize: 5,
+          personFields: 'names,emailAddresses,resourceName',
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      ]);
+
+      const contacts = (searchResponse as any).data?.contacts || [];
+      const contact = contacts.find((c: any) =>
+        c.emailAddresses?.some((e: any) => e.value.toLowerCase() === targetUserEmail.toLowerCase())
+      );
+
+      if (!contact) {
+        return res.status(404).json({ error: "Usuário não encontrado no Google" });
+      }
+
+      const chat = google.chat({ version: 'v1', auth: client });
+
+      // Create or get a DM space with this user
+      const dmSpace = await Promise.race([
+        (chat.spaces.create as any)({
+          requestBody: {
+            spaceType: 'DM',
+            title: `DM com ${contact.names?.[0]?.displayName || targetUserEmail}`,
+            dmDetails: {
+              userToMessage: contact.resourceName
+            }
+          }
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      ]);
+
+      // Send the message
+      const messageResponse = await Promise.race([
+        (chat.spaces.messages.create as any)({
+          parent: (dmSpace as any).data?.name,
+          requestBody: { text }
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      ]);
+
+      console.log(`✅ DM enviado para ${targetUserEmail}`);
+      res.json({ success: true, messageId: messageResponse.data.name });
+    } catch (error: any) {
+      console.error("Erro ao enviar DM:", error.message);
+      res.status(500).json({ error: error.message || "Erro ao enviar mensagem" });
     }
   });
 

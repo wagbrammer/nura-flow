@@ -5,12 +5,9 @@ import {
   Search,
   Send,
   Plus,
-  Star,
   MoreVertical,
   ExternalLink,
-  CheckSquare,
   Sparkles,
-  Reply,
   Users,
   Bot,
   ChevronRight,
@@ -20,10 +17,29 @@ import {
   Smile,
   ArrowRight,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  User,
+  Mail
 } from 'lucide-react';
 import { formatDateBR, formatRelativeTimeBR } from '../lib/date';
 import { ChatSpace, ChatMessage } from '../types';
+
+interface GoogleSpace {
+  name: string;
+  displayName: string;
+  spaceType: string;
+  spaceId: string;
+  dmDetails?: {
+    userToMessage: string;
+  };
+}
+
+interface GoogleUser {
+  resourceName: string;
+  name: string;
+  email: string;
+}
 
 export const ChatView: React.FC = () => {
   const {
@@ -37,18 +53,22 @@ export const ChatView: React.FC = () => {
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showWebhookAlert, setShowWebhookAlert] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [loadingSpaces, setLoadingSpaces] = useState(false);
+  const [googleSpaces, setGoogleSpaces] = useState<GoogleSpace[]>([]);
+  const [sendMessageError, setSendMessageError] = useState<string | null>(null);
+
+  // DM search state
+  const [showDMPanel, setShowDMPanel] = useState(false);
+  const [dmEmail, setDmEmail] = useState('');
+  const [dmSearchResult, setDmSearchResult] = useState<GoogleUser | null>(null);
+  const [dmLoading, setDmLoading] = useState(false);
+  const [dmMessageText, setDmMessageText] = useState('');
+  const [sendingDM, setSendingDM] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load chat data from localStorage or use mock
-  const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('robustec_chat_spaces');
-      if (saved) return JSON.parse(saved);
-    }
-    // Will be populated from constants via context
-    return [];
-  });
-
+  // Local chat messages (for history display)
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('robustec_chat_messages');
@@ -59,18 +79,43 @@ export const ChatView: React.FC = () => {
 
   // Sync with localStorage
   useEffect(() => {
-    localStorage.setItem('robustec_chat_spaces', JSON.stringify(chatSpaces));
-  }, [chatSpaces]);
-
-  useEffect(() => {
     localStorage.setItem('robustec_chat_messages', JSON.stringify(chatMessages));
   }, [chatMessages]);
 
-  const filteredSpaces = chatSpaces.filter(s =>
+  // Check Google connection
+  useEffect(() => {
+    const checkGoogleConnection = async () => {
+      try {
+        const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
+        const data = await res.json();
+        setGoogleConnected(data?.googleConnected || false);
+      } catch {
+        setGoogleConnected(false);
+      }
+    };
+    checkGoogleConnection();
+  }, []);
+
+  // Fetch Google Chat spaces
+  useEffect(() => {
+    if (!googleConnected) return;
+
+    setLoadingSpaces(true);
+    fetch('/api/google/chat/spaces', { credentials: 'same-origin' })
+      .then(res => res.json())
+      .then(data => {
+        const spaces: GoogleSpace[] = data.spaces || [];
+        setGoogleSpaces(spaces);
+      })
+      .catch(err => console.error('Erro ao buscar espaços:', err))
+      .finally(() => setLoadingSpaces(false));
+  }, [googleConnected]);
+
+  const filteredSpaces = googleSpaces.filter(s =>
     s.displayName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedSpace = chatSpaces.find(s => s.id === selectedSpaceId);
+  const selectedSpace = googleSpaces.find(s => s.spaceId === selectedSpaceId);
   const spaceMessages = selectedSpaceId ? (chatMessages[selectedSpaceId] || []) : [];
 
   const scrollToBottom = () => {
@@ -81,11 +126,42 @@ export const ChatView: React.FC = () => {
     scrollToBottom();
   }, [spaceMessages, selectedSpaceId]);
 
+  // Search for user to send DM
+  const handleSearchUser = async () => {
+    if (!dmEmail.trim()) return;
+    setDmLoading(true);
+    setDmSearchResult(null);
+
+    try {
+      const res = await fetch(`/api/google/chat/search-user?email=${encodeURIComponent(dmEmail)}`, {
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setDmSearchResult({
+          resourceName: data.resourceName,
+          name: data.name,
+          email: data.email
+        });
+      } else {
+        alert(data.error || 'Usuário não encontrado');
+      }
+    } catch (err) {
+      console.error('Erro ao buscar usuário:', err);
+      alert('Erro ao buscar usuário');
+    } finally {
+      setDmLoading(false);
+    }
+  };
+
+  // Send room message via API
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageText.trim() || !selectedSpaceId) return;
 
     setIsSending(true);
+    setSendMessageError(null);
 
     // Optimistic update
     const newMessage: ChatMessage = {
@@ -105,22 +181,96 @@ export const ChatView: React.FC = () => {
       [selectedSpaceId]: [...(prev[selectedSpaceId] || []), newMessage]
     }));
 
-    // Try to send via webhook if configured
-    const webhookUrl = localStorage.getItem('robustec_google_chat_webhook');
-    if (webhookUrl) {
+    // Try to send via API if Google is connected
+    if (googleConnected && selectedSpace) {
       try {
-        await fetch(webhookUrl, {
+        const res = await fetch('/api/google/chat/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: `${user.name}: ${messageText.trim()}` })
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            roomId: selectedSpace.spaceId,
+            text: `${user.name}: ${messageText.trim()}`
+          })
         });
-      } catch (err) {
-        console.warn('Webhook falhou (ignorado localmente):', err);
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Erro ao enviar mensagem');
+        }
+
+        console.log('✅ Mensagem enviada via API:', data.messageId);
+      } catch (err: any) {
+        console.warn('API falhou, tentando webhook:', err.message);
+        setSendMessageError(err.message);
+
+        // Fallback to webhook
+        const webhookUrl = localStorage.getItem('robustec_google_chat_webhook');
+        if (webhookUrl) {
+          try {
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: `${user.name}: ${messageText.trim()}` })
+            });
+          } catch (webhookErr) {
+            console.warn('Webhook também falhou:', webhookErr);
+          }
+        }
+      }
+    } else {
+      // No Google connection - try webhook only
+      const webhookUrl = localStorage.getItem('robustec_google_chat_webhook');
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: `${user.name}: ${messageText.trim()}` })
+          });
+        } catch (err) {
+          console.warn('Webhook falhou (ignorado localmente):', err);
+        }
       }
     }
 
     setMessageText('');
     setIsSending(false);
+  };
+
+  // Send DM via API
+  const handleSendDM = async () => {
+    if (!dmMessageText.trim() || !dmSearchResult) return;
+
+    setSendingDM(true);
+    try {
+      const res = await fetch('/api/google/chat/send-dm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          targetUserEmail: dmSearchResult.email,
+          text: `${user.name}: ${dmMessageText.trim()}`
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao enviar DM');
+      }
+
+      alert(`✅ Mensagem enviada para ${dmSearchResult.name}!`);
+      setDmMessageText('');
+      setDmSearchResult(null);
+      setDmEmail('');
+    } catch (err: any) {
+      console.error('Erro ao enviar DM:', err);
+      alert(`Erro ao enviar mensagem: ${err.message}`);
+    } finally {
+      setSendingDM(false);
+    }
   };
 
   const handleConvertToTask = (msg: ChatMessage) => {
@@ -146,7 +296,7 @@ export const ChatView: React.FC = () => {
     alert('Nota criada a partir da mensagem!');
   };
 
-  const handleOpenInChat = (space: ChatSpace) => {
+  const handleOpenInChat = (space: GoogleSpace) => {
     const url = `https://chat.google.com/u/0/${space.name}`;
     window.open(url, '_blank');
   };
@@ -164,7 +314,9 @@ export const ChatView: React.FC = () => {
               Google Chat
             </h1>
             <p className="text-xs text-slate-500">
-              Salas, mensagens diretas e conversas — integradas ao seu fluxo
+              {googleConnected
+                ? 'Conectado ao Google Chat — enviando mensagens diretamente'
+                : 'Conecte-se ao Google nas configurações para usar o Chat'}
             </p>
           </div>
         </div>
@@ -183,15 +335,105 @@ export const ChatView: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setShowDMPanel(!showDMPanel)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors"
+            title="Enviar mensagem direta (DM)"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Enviar DM</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowWebhookAlert(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors"
             title="Configurar Webhook para envio real"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Configurar Webhook</span>
+            <span>Webhook</span>
           </button>
         </div>
       </div>
+
+      {/* DM Panel */}
+      {showDMPanel && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xs p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Users className="w-4 h-4 text-purple-600" />
+              Enviar Mensagem Direta (DM)
+            </h3>
+            <button
+              onClick={() => setShowDMPanel(false)}
+              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+            >
+              <X className="w-4 h-4 text-slate-500" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Search user */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Email do destinatário
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={dmEmail}
+                  onChange={e => setDmEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearchUser()}
+                  placeholder="nome@empresa.com"
+                  className="flex-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  onClick={handleSearchUser}
+                  disabled={dmLoading || !dmEmail.trim()}
+                  className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold disabled:opacity-50"
+                >
+                  {dmLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                </button>
+              </div>
+              {dmSearchResult && (
+                <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800">
+                  <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold">
+                    {dmSearchResult.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{dmSearchResult.name}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{dmSearchResult.email}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Message */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Mensagem
+              </label>
+              <textarea
+                value={dmMessageText}
+                onChange={e => setDmMessageText(e.target.value)}
+                placeholder="Digite sua mensagem..."
+                rows={3}
+                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleSendDM}
+              disabled={!dmSearchResult || !dmMessageText.trim() || sendingDM}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendingDM ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Enviar DM
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Webhook Config Alert */}
       {showWebhookAlert && (
@@ -244,7 +486,7 @@ export const ChatView: React.FC = () => {
         <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col overflow-hidden">
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Salas & Conversas ({chatSpaces.length})
+              Salas & Conversas ({filteredSpaces.length})
             </h3>
             <button
               type="button"
@@ -270,80 +512,104 @@ export const ChatView: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-1 p-2">
-            {filteredSpaces.map(space => {
-              const messages = chatMessages[space.id] || [];
-              const lastMsg = messages[messages.length - 1];
-              const isSelected = selectedSpaceId === space.id;
-              const isDM = space.type === 'DIRECT_MESSAGE';
-
-              return (
-                <div
-                  key={space.id}
-                  onClick={() => setSelectedSpaceId(space.id)}
-                  className={`p-3 rounded-2xl cursor-pointer transition-all ${
-                    isSelected
-                      ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 shadow-sm'
-                      : 'hover:bg-slate-50 dark:hover:bg-slate-800/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-${isDM ? 'full' : 'xl'} flex items-center justify-center shrink-0 ${
-                      isDM ? 'bg-purple-100 dark:bg-purple-950 text-purple-600' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600'
-                    }`}>
-                      {isDM ? <Users className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
-                        {space.displayName}
-                      </p>
-                      <p className="text-[10px] text-slate-400 truncate">
-                        {lastMsg ? lastMsg.text?.slice(0, 40) + '...' : 'Sem mensagens ainda'}
-                      </p>
-                    </div>
-                  </div>
-                  {lastMsg && (
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {formatRelativeTimeBR(lastMsg.createTime)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {filteredSpaces.length === 0 && (
+            {loadingSpaces ? (
+              <div className="p-8 text-center">
+                <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-slate-400" />
+                <p className="text-xs text-slate-500">Carregando salas...</p>
+              </div>
+            ) : filteredSpaces.length === 0 ? (
               <div className="p-8 text-center text-slate-400">
                 <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p className="text-xs">Nenhuma sala encontrada.</p>
+                    {!googleConnected && (
+                  <p className="text-xs mt-2 text-amber-600">Conecte-se ao Google nas configurações</p>
+                )}
               </div>
+            ) : (
+              filteredSpaces.map(space => {
+                const messages = chatMessages[space.spaceId] || [];
+                const lastMsg = messages[messages.length - 1];
+                const isSelected = selectedSpaceId === space.spaceId;
+                const isDM = space.spaceType === 'DM';
+
+                return (
+                  <div
+                    key={space.spaceId}
+                    onClick={() => setSelectedSpaceId(space.spaceId)}
+                    className={`p-3 rounded-2xl cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 shadow-sm'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                        isDM
+                          ? 'bg-purple-100 dark:bg-purple-950 text-purple-600'
+                          : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600'
+                      }`}>
+                        {isDM ? <Users className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                          {space.displayName}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          {lastMsg ? lastMsg.text?.slice(0, 40) + '...' : 'Sem mensagens ainda'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenInChat(space);
+                        }}
+                        className="p-1 text-slate-400 hover:text-emerald-600"
+                        title="Abrir no Google Chat"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    {lastMsg && (
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {formatRelativeTimeBR(lastMsg.createTime)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
 
         {/* Conversation View (8 cols) */}
         <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-          {selectedSpace ? (
+          {selectedSpaceId ? (
             <>
               {/* Conversation Header */}
               <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-${selectedSpace.type === 'DIRECT_MESSAGE' ? 'full' : 'xl'} flex items-center justify-center ${
-                    selectedSpace.type === 'DIRECT_MESSAGE' ? 'bg-purple-100 dark:bg-purple-950 text-purple-600' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600'
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    selectedSpace?.spaceType === 'DM'
+                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-600'
+                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600'
                   }`}>
-                    {selectedSpace.type === 'DIRECT_MESSAGE' ? <Users className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                    {selectedSpace?.spaceType === 'DM' ? <Users className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{selectedSpace.displayName}</h3>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      {selectedSpace?.displayName}
+                    </h3>
                     <p className="text-[10px] text-slate-400">
-                      {spaceMessages.length} mensagem(s) • {selectedSpace.type === 'DIRECT_MESSAGE' ? 'Mensagem direta' : 'Sala de equipe'}
+                      {spaceMessages.length} mensagem(s) • {selectedSpace?.spaceType === 'DM' ? 'Mensagem direta' : 'Sala de equipe'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleOpenInChat(selectedSpace)}
+                    onClick={() => selectedSpace && handleOpenInChat(selectedSpace)}
                     className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-colors"
                     title="Abrir no Google Chat"
                   >
@@ -359,6 +625,11 @@ export const ChatView: React.FC = () => {
                     <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
                     <p className="text-sm font-medium">Nenhuma mensagem ainda</p>
                     <p className="text-xs mt-1">Seja o primeiro a escrever!</p>
+                    {googleConnected && (
+                      <p className="text-xs mt-2 text-emerald-600">
+                        Mensagens serão enviadas diretamente ao Google Chat
+                      </p>
+                    )}
                   </div>
                 ) : (
                   spaceMessages.map((msg, idx) => {
@@ -448,16 +719,24 @@ export const ChatView: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                    {localStorage.getItem('robustec_google_chat_webhook') ? (
+                    {googleConnected ? (
                       <span className="flex items-center gap-1 text-emerald-600">
                         <CheckCircle2 className="w-3 h-3" />
-                        Webhook configurado — mensagens serão enviadas ao Google Chat
+                        Conectado ao Google Chat — envio automático habilitado
                       </span>
-                    ) : (
+                    ) : localStorage.getItem('robustec_google_chat_webhook') ? (
                       <span className="flex items-center gap-1 text-amber-600">
                         <AlertTriangle className="w-3 h-3" />
-                        Webhook não configurado — mensagens ficam apenas localmente
+                        Webhook configurado — mensagens serão enviadas via webhook
                       </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <AlertTriangle className="w-3 h-3" />
+                        Modo local — conecte-se ao Google nas configurações para enviar mensagens reais
+                      </span>
+                    )}
+                    {sendMessageError && (
+                      <span className="text-red-600 ml-2">{sendMessageError}</span>
                     )}
                   </div>
                 </form>
@@ -468,7 +747,19 @@ export const ChatView: React.FC = () => {
               <div className="text-center">
                 <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-30" />
                 <p className="text-sm font-medium">Selecione uma sala ou conversa</p>
-                <p className="text-xs mt-1">Ou configure um webhook para começar</p>
+                <p className="text-xs mt-1">
+                  {googleConnected
+                    ? 'Carregando suas salas do Google Chat...'
+                    : 'Ou configure um webhook para começar'}
+                </p>
+                {!googleConnected && (
+                  <button
+                    onClick={() => window.location.href = '/settings'}
+                    className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+                  >
+                    Conectar ao Google
+                  </button>
+                )}
               </div>
             </div>
           )}
