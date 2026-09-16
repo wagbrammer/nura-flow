@@ -1060,7 +1060,7 @@ export const SettingsView: React.FC = () => {
                   disabled={googleSyncLoading}
                   className="text-[10px] font-bold px-2 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
-                  <RefreshCw className={`w-3 h-3 ${googleSyncLoading ? 'animate-spin' : ''}`} />
+                  <RotateCcw className={`w-3 h-3 ${googleSyncLoading ? 'animate-spin' : ''}`} />
                   Sincronizar
                 </button>
                 <button

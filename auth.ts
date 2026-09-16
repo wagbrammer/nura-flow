@@ -150,6 +150,40 @@ export const createSessionCookie = async (
 export const clearSessionCookie = (): string =>
   `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 
+/** Gerar token breve para passar pela URL após OAuth (evita depender do cookie no redirect) */
+export const signSessionToken = async (
+  username: string,
+  secret: string
+): Promise<string> => {
+  const expiresAt = Math.floor(Date.now() / 1000) + 60; // 1 minuto
+  const payload = `${encodeURIComponent(username)}.${expiresAt}`;
+  const signature = await sign(payload, secret);
+  return `${encodeURIComponent(payload)}.${signature}`;
+};
+
+/** Validar token de sessão vindo da URL e retornar username se válido */
+export const verifySessionToken = async (
+  token: string,
+  secret: string
+): Promise<string | null> => {
+  try {
+    const [payloadEncoded, providedSig] = token.split('.');
+    if (!payloadEncoded || !providedSig) return null;
+    const payload = decodeURIComponent(payloadEncoded);
+    const parts = payload.split('.');
+    if (parts.length !== 2) return null;
+    const [encodedUsername, expiresText] = parts;
+    const expiresAt = Number.parseInt(expiresText, 10);
+    if (!Number.isFinite(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) return null;
+    const username = decodeURIComponent(encodedUsername);
+    const expectedSig = await sign(payload, secret);
+    if (!safeEqual(providedSig, expectedSig)) return null;
+    return username;
+  } catch {
+    return null;
+  }
+};
+
 export const hasValidSession = async (
   cookieHeader: string | null | undefined,
   config: AuthConfig

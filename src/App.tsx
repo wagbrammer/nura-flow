@@ -108,6 +108,9 @@ const MainLayout: React.FC = () => {
 
 // 根据 URL 路径决定初始视图（供 Google OAuth 回调等场景使用）
 function getInitialView(): string {
+  // Se veio do callback do Google, forçar a tela de configurações
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('google') === 'connected') return 'settings';
   const path = window.location.pathname.replace(/^\//, '') || 'today';
   const viewMap: Record<string, string> = {
     settings: 'settings', tasks: 'tasks', meetings: 'meetings',

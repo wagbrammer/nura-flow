@@ -12,6 +12,8 @@ import {
   getAuthConfig,
   hasValidSession,
   renderLoginPage,
+  signSessionToken,
+  verifySessionToken,
   verifyPassword,
   SKIP_AUTH_BYPASS,
 } from "./auth";
@@ -778,13 +780,14 @@ async function startServer() {
       storedTokens = tokens;
       client.setCredentials(tokens);
       console.log("Google tokens salvos com sucesso!");
-      // Create session cookie so user stays authenticated after redirect
+      // Generate URL-based session token (more reliable than cookie across redirects)
       const authConfig = getAuthConfig(process.env);
       if (authConfig) {
-        const cookie = await createSessionCookie(authConfig.username, authConfig.sessionSecret);
-        res.setHeader("Set-Cookie", cookie);
+        const token = await signSessionToken(authConfig.username, authConfig.sessionSecret);
+        res.redirect(`/settings?google=connected&session_token=${encodeURIComponent(token)}`);
+      } else {
+        res.redirect("/settings?google=connected");
       }
-      res.redirect("/settings?google=connected");
     } catch (error: any) {
       console.error("Erro ao trocar código por token:", error);
       res.status(500).send("Erro ao autenticar com o Google: " + error.message);
@@ -818,6 +821,19 @@ async function startServer() {
   app.post("/api/auth/google/disconnect", async (req, res) => {
     storedTokens = null;
     res.json({ success: true, message: "Desconectado do Google" });
+  });
+
+  // Exchange OAuth session token for a proper cookie-based session
+  app.post("/api/auth/verify-token", async (req, res) => {
+    const authConfig = getAuthConfig(process.env);
+    if (!authConfig) return res.status(503).json({ error: "Configuração de auth não encontrada" });
+    const { token } = req.body as { token?: string };
+    if (!token) return res.status(400).json({ error: "Token inválido" });
+    const username = await verifySessionToken(token, authConfig.sessionSecret);
+    if (!username) return res.status(401).json({ error: "Token inválido ou expirado" });
+    const cookie = await createSessionCookie(username, authConfig.sessionSecret);
+    res.setHeader("Set-Cookie", cookie);
+    res.json({ success: true });
   });
 
   // Save Google Config to .env
@@ -1088,8 +1104,8 @@ async function startServer() {
       return next();
     }
 
-    // Bypass authentication for Google OAuth callback redirect
-    if (req.path.startsWith('/settings') && req.query.google === 'connected') {
+    // Bypass authentication for Google OAuth callback redirect (both old param and new token)
+    if (req.path.startsWith('/settings') && (req.query.google === 'connected' || req.query.session_token)) {
       return next();
     }
 

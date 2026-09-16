@@ -164,8 +164,13 @@ export function AppProvider({ children, initialView }: { children: ReactNode; in
   const [quickSummaryState, setQuickSummaryState] = useState<string>(() => StorageService.getQuickSummary());
   const [passwords, setPasswords] = useState<PasswordItem[]>(() => StorageService.getPasswords());
   const [currentView, setCurrentView] = useState<string>(() => {
+    // If we have an explicit initialView prop, trust it over localStorage
+    // This is critical for OAuth callback redirects that land on a specific page
+    if (initialView && ['today','agenda','meetings','notes','tasks','projects','inbox','files','useful_links','email','chat','assistant','pomodoro','timeline','settings','passwords','meeting_mode'].includes(initialView)) {
+      return initialView;
+    }
     const saved = localStorage.getItem('nura_current_view');
-    return saved && ['today','agenda','meetings','notes','tasks','projects','inbox','files','useful_links','email','chat','assistant','pomodoro','timeline','settings','passwords','meeting_mode'].includes(saved) ? saved : (initialView || 'today');
+    return saved && ['today','agenda','meetings','notes','tasks','projects','inbox','files','useful_links','email','chat','assistant','pomodoro','timeline','settings','passwords','meeting_mode'].includes(saved) ? saved : 'today';
   });
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     try {

@@ -14,21 +14,56 @@ export const AuthGate: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     let active = true;
-    // Check session first
-    fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' })
-      .then((response) => {
-        if (active) setAuthState(response.ok ? 'authenticated' : 'anonymous');
-      })
-      .catch(() => {
-        if (active) setAuthState('anonymous');
-      });
-    // Load logo from server settings
-    fetch('/api/settings/logo', { credentials: 'same-origin', cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (active && data.logoUrl) setLogoUrl(data.logoUrl);
-      })
-      .catch(() => {});
+
+    // Handle OAuth callback: if ?session_token= exists, exchange it for a real session cookie
+    const handleOAuthCallback = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const sessionToken = params.get('session_token');
+      if (sessionToken) {
+        try {
+          const resp = await fetch('/api/auth/verify-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: sessionToken }),
+          });
+          if (resp.ok) {
+            // Token validated - cookie should now be set server-side
+            // Remove token from URL without reload
+            const url = new URL(window.location.href);
+            url.searchParams.delete('session_token');
+            url.searchParams.delete('google');
+            window.history.replaceState({}, '', url.toString());
+            setAuthState('authenticated');
+            return;
+          }
+        } catch {}
+        // Invalid token — remove it from URL and proceed as anonymous
+        const url = new URL(window.location.href);
+        url.searchParams.delete('session_token');
+        url.searchParams.delete('google');
+        window.history.replaceState({}, '', url.toString());
+      }
+    };
+
+    handleOAuthCallback().then(() => {
+      // Now check the real session
+      fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' })
+        .then((response) => {
+          if (active) setAuthState(response.ok ? 'authenticated' : 'anonymous');
+        })
+        .catch(() => {
+          if (active) setAuthState('anonymous');
+        });
+
+      // Load logo from server settings
+      fetch('/api/settings/logo', { credentials: 'same-origin', cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (active && data.logoUrl) setLogoUrl(data.logoUrl);
+        })
+        .catch(() => {});
+    });
+
     return () => { active = false; };
   }, []);
 

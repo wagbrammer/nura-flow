@@ -96,7 +96,7 @@ export const AgendaView: React.FC = () => {
   const activeMeeting = meetings.find(m => m.id === selectedMeeting?.id) || selectedMeeting;
 
   // Filter Google Calendar events for current view
-  const googleEvents = events.filter(e => e.isGoogleEvent && showGoogleEvents);
+  const googleEvents = events.filter((e) => 'isGoogleEvent' in e && (e as any).isGoogleEvent && showGoogleEvents);
 
   // Edit meeting handlers
   const handleEditMeeting = (meeting: any) => {
