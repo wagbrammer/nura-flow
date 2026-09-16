@@ -36,7 +36,6 @@ interface GoogleSpace {
 }
 
 interface GoogleUser {
-  resourceName: string;
   name: string;
   email: string;
 }
@@ -60,8 +59,8 @@ export const ChatView: React.FC = () => {
 
   // DM state
   const [showDMPanel, setShowDMPanel] = useState(false);
-  const [dmContacts, setDmContacts] = useState<GoogleUser[]>([]);
-  const [dmSelectedContact, setDmSelectedContact] = useState<GoogleUser | null>(null);
+  const [dmContacts, setDmContacts] = useState<{ name: string; email: string }[]>([]);
+  const [dmSelectedContact, setDmSelectedContact] = useState<{ name: string; email: string } | null>(null);
   const [dmLoadingContacts, setDmLoadingContacts] = useState(false);
   const [dmMessageText, setDmMessageText] = useState('');
   const [sendingDM, setSendingDM] = useState(false);
@@ -86,7 +85,7 @@ export const ChatView: React.FC = () => {
   useEffect(() => {
     const checkGoogleConnection = async () => {
       try {
-        const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
+        const res = await fetch('/api/auth/google/status', { credentials: 'same-origin' });
         const data = await res.json();
         console.log('📊 Status do Google:', data);
         setGoogleConnected(data?.googleConnected || false);
@@ -260,7 +259,7 @@ export const ChatView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
-          targetUserResourceName: dmSelectedContact.resourceName,
+          targetUserEmail: dmSelectedContact.email,
           text: `${user.name}: ${dmMessageText.trim()}`
         })
       });
@@ -399,12 +398,12 @@ export const ChatView: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {dmContacts.map((contact) => (
+                  {dmContacts.map((contact, idx) => (
                     <button
-                      key={contact.resourceName}
+                      key={idx}
                       onClick={() => setDmSelectedContact(contact)}
                       className={`w-full flex items-center gap-2 p-2 rounded-xl border transition-all text-left ${
-                        dmSelectedContact?.resourceName === contact.resourceName
+                        dmSelectedContact?.email === contact.email
                           ? 'bg-purple-100 dark:bg-purple-950 border-purple-400 dark:border-purple-700'
                           : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-purple-300'
                       }`}

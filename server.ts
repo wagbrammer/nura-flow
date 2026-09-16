@@ -1313,10 +1313,10 @@ async function startServer() {
 
       const people = google.people({ version: 'v1', auth: client });
       const response = await Promise.race([
-        people.people.connections.list({
+        (people.people.connections.list as any)({
           resourceName: 'people/me',
           pageSize: 200,
-          personFields: 'names,emailAddresses,resourceName',
+          personFields: 'names,emailAddresses',
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
       ]);
@@ -1324,10 +1324,8 @@ async function startServer() {
       const contacts = (response as any).data?.connections || [];
       const formattedContacts = contacts
         .map((person: any) => ({
-          resourceName: person.resourceName,
           name: person.names?.[0]?.displayName || '(Sem nome)',
           email: person.emailAddresses?.[0]?.value || '',
-          photo: person.photos?.[0]?.value || ''
         }))
         .filter(c => c.email); // Only include contacts with email
 
@@ -1341,9 +1339,9 @@ async function startServer() {
 
   // Send direct message to a user via Google Chat API
   app.post("/api/google/chat/send-dm", requireAuth, async (req, res) => {
-    const { targetUserResourceName, text } = req.body;
-    if (!targetUserResourceName || !text) {
-      return res.status(400).json({ error: "targetUserResourceName e text são obrigatórios" });
+    const { targetUserEmail, text } = req.body;
+    if (!targetUserEmail || !text) {
+      return res.status(400).json({ error: "targetUserEmail e text são obrigatórios" });
     }
 
     try {
@@ -1357,13 +1355,13 @@ async function startServer() {
 
       const chat = google.chat({ version: 'v1', auth: client });
 
-      // Create DM space with this user
+      // Create DM space with this user using email
       const dmSpace = await Promise.race([
         (chat.spaces.create as any)({
           requestBody: {
             spaceType: 'DM',
             dmDetails: {
-              userToMessage: targetUserResourceName
+              userToMessage: targetUserEmail
             }
           }
         }),
@@ -1384,7 +1382,7 @@ async function startServer() {
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
       ]);
 
-      console.log(`✅ DM enviado para ${targetUserResourceName}`);
+      console.log(`✅ DM enviado para ${targetUserEmail}`);
       res.json({ success: true, messageId: (messageResponse as any).data?.name });
     } catch (error: any) {
       console.error("Erro ao enviar DM:", error.message);
