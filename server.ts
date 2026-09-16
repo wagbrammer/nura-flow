@@ -778,6 +778,12 @@ async function startServer() {
       storedTokens = tokens;
       client.setCredentials(tokens);
       console.log("Google tokens salvos com sucesso!");
+      // Create session cookie so user stays authenticated after redirect
+      const authConfig = getAuthConfig(process.env);
+      if (authConfig) {
+        const cookie = await createSessionCookie(authConfig.username, authConfig.sessionSecret);
+        res.setHeader("Set-Cookie", cookie);
+      }
       res.redirect("/settings?google=connected");
     } catch (error: any) {
       console.error("Erro ao trocar código por token:", error);
