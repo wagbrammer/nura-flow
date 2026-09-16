@@ -1314,53 +1314,8 @@ async function startServer() {
     }
   });
 
-  // List messages from a Google Chat space
-  app.get("/api/google/chat/messages/:spaceId", requireAuth, async (req, res) => {
-    const { spaceId } = req.params;
-    console.log(`🔍 Buscando mensagens da sala ${spaceId}...`);
-    try {
-      if (!isGoogleConfigured()) {
-        console.error("❌ Google não configurado");
-        return res.status(503).json({ error: "Google OAuth não configurado" });
-      }
-      const client = getOAuthClient();
-      if (!client || !storedTokens?.access_token) {
-        console.error("❌ Tokens não disponíveis");
-        return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
-      }
-
-      const chat = google.chat({ version: 'v1', auth: client });
-      const response = await Promise.race([
-        (chat.spaces.messages.list as any)({
-          parent: `spaces/${spaceId}`,
-          pageSize: 100,
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-      ]);
-
-      const data = (response as any).data;
-      console.log('📦 Resposta da API de mensagens:', JSON.stringify(data, null, 2));
-
-      const messages = data?.messages || [];
-      const formattedMessages = messages.map((msg: any) => ({
-        id: msg.name?.split('/').pop(),
-        text: msg.text || '',
-        sender: {
-          name: msg.sender?.name || 'unknown',
-          displayName: msg.sender?.displayName || 'Desconhecido',
-          type: msg.sender?.type || 'HUMAN'
-        },
-        createTime: msg.createTime || new Date().toISOString(),
-        updatedTime: msg.updatedTime,
-      }));
-
-      console.log(`✅ Encontradas ${formattedMessages.length} mensagens na sala ${spaceId}`);
-      res.json({ messages: formattedMessages });
-    } catch (error: any) {
-      console.error("❌ Erro ao buscar mensagens:", error.message, error.stack);
-      res.status(500).json({ error: error.message || "Erro ao buscar mensagens" });
-    }
-  });
+  // Note: Google Chat API does not provide a scope for reading messages via REST API.
+// Message history is maintained locally in the browser.
 
   // List all contacts that can be messaged via DM
   app.get("/api/google/chat/contacts", requireAuth, async (req, res) => {

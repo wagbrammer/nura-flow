@@ -31,7 +31,6 @@ export const ChatView: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [loadingSpaces, setLoadingSpaces] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
   const [googleSpaces, setGoogleSpaces] = useState<GoogleSpace[]>([]);
   const [sendMessageError, setSendMessageError] = useState<string | null>(null);
 
@@ -102,41 +101,10 @@ export const ChatView: React.FC = () => {
   );
 
   const selectedSpace = googleSpaces.find(s => s.spaceId === selectedSpaceId);
-  const [spaceMessages, setSpaceMessages] = useState<ChatMessage[]>([]);
-
-  // Fetch messages when a space is selected
-  useEffect(() => {
-    if (!selectedSpaceId) {
-      setSpaceMessages([]);
-      return;
-    }
-
-    console.log(`🔍 Buscando mensagens da sala ${selectedSpaceId}...`);
-    setLoadingMessages(true);
-    fetch(`/api/google/chat/messages/${selectedSpaceId}`, { credentials: 'same-origin' })
-      .then(res => {
-        console.log(`📡 Resposta das mensagens:`, res.status);
-        return res.json();
-      })
-      .then(data => {
-        console.log(`📦 Mensagens recebidas:`, data);
-        setSpaceMessages(data.messages || []);
-      })
-      .catch(err => {
-        console.error('❌ Erro ao buscar mensagens:', err);
-      })
-      .finally(() => setLoadingMessages(false));
-  }, [selectedSpaceId]);
+  // Note: Google Chat API does not allow reading message history via REST API
+  // Only listing spaces and sending messages is supported
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [spaceMessages, selectedSpaceId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,16 +133,6 @@ export const ChatView: React.FC = () => {
         }
 
         console.log('✅ Mensagem enviada via API:', data.messageId);
-
-        // Refresh messages after sending
-        setTimeout(() => {
-          fetch(`/api/google/chat/messages/${selectedSpace.spaceId}`, { credentials: 'same-origin' })
-            .then(res => res.json())
-            .then(data => {
-              setSpaceMessages(data.messages || []);
-            })
-            .catch(err => console.error('Erro ao atualizar mensagens:', err));
-        }, 1000);
       } catch (err: any) {
         console.warn('API falhou:', err.message);
         setSendMessageError(err.message);
@@ -535,12 +493,12 @@ export const ChatView: React.FC = () => {
 
               {/* Messages Area */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={messagesEndRef}>
-                {loadingMessages ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                    <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                    <p className="text-sm">Carregando mensagens...</p>
-                  </div>
-                ) : spaceMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
+                  <p className="text-sm font-medium">Histórico de mensagens</p>
+                  <p className="text-xs mt-1">A API do Google Chat não permite ler mensagens antigas</p>
+                  <p className="text-xs mt-2 text-emerald-600">Você pode enviar novas mensagens para esta sala</p>
+                </div>
                   <div className="flex flex-col items-center justify-center h-full text-slate-400">
                     <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
                     <p className="text-sm font-medium">Nenhuma mensagem ainda</p>
@@ -551,32 +509,7 @@ export const ChatView: React.FC = () => {
                       </p>
                     )}
                   </div>
-                ) : (
-                  spaceMessages.map((msg, idx) => {
-                    const isOwn = msg.sender.name.startsWith('users/');
-                    return (
-                      <div key={msg.id || idx} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[70%] ${isOwn ? 'flex-row-reverse' : 'flex-row'} space-x-2`}>
-                          <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-                            <div className={`p-3 rounded-2xl ${
-                              isOwn
-                                ? 'bg-emerald-600 text-white rounded-tr-none'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-none'
-                            }`}>
-                              <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">{msg.text}</p>
-                            </div>
-                            <span className="text-[9px] text-slate-400 font-mono mt-1 px-1">
-                              {formatRelativeTimeBR(msg.createTime)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
+  
               {/* Composer */}
               <div className="p-4 border-t border-slate-200 dark:border-slate-800">
                 <form onSubmit={handleSendMessage} className="space-y-2">
