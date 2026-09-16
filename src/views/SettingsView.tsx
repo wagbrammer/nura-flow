@@ -248,7 +248,7 @@ export const SettingsView: React.FC = () => {
   const [weatherLongitude, setWeatherLongitude] = useState(weatherLocation?.longitude?.toString() || '');
   const [isSavingWeather, setIsSavingWeather] = useState(false);
   const [weatherSavedMessage, setWeatherSavedMessage] = useState<string | null>(null);
-  const [googleStatus, setGoogleStatus] = useState<{ configured: boolean; connected: boolean; message: string; hasWriteAccess?: boolean } | null>(null);
+  const [googleStatus, setGoogleStatus] = useState<{ configured: boolean; connected: boolean; message: string; hasWriteAccess?: boolean; hasContactsAccess?: boolean } | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');

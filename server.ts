@@ -1256,6 +1256,21 @@ async function startServer() {
       if (meeting.location) event.location = meeting.location;
       if (meeting.meetUrl) event.hangoutLink = meeting.meetUrl;
 
+      // Add attendees from meeting participants
+      if (meeting.participants && meeting.participants.length > 0) {
+        const attendees = meeting.participants
+          .filter(p => p.email && p.email.includes('@'))
+          .map(p => ({
+            email: p.email,
+            displayName: p.name,
+            responseStatus: p.status === 'accepted' ? 'accepted' : 'needsAction',
+          }));
+        if (attendees.length > 0) {
+          event.attendees = attendees;
+          console.log(`👥 Adicionando ${attendees.length} participantes no Google Calendar`);
+        }
+      }
+
       if (meeting.eventId) {
         // Update existing event
         await (calendar.events.update as any)({
