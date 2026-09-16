@@ -146,7 +146,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ children, initialView }: { children: ReactNode; initialView?: string }) {
   const [user, setUser] = useState<User>(() => StorageService.getUser());
   const [projects, setProjects] = useState<Project[]>(() => StorageService.getProjects() || []);
   const [tags, setTags] = useState<Tag[]>(() => StorageService.getTags() || []);
@@ -163,7 +163,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [chatMessages, setChatMessages] = useState<AIChatMessage[]>(() => StorageService.getChatMessages());
   const [quickSummaryState, setQuickSummaryState] = useState<string>(() => StorageService.getQuickSummary());
   const [passwords, setPasswords] = useState<PasswordItem[]>(() => StorageService.getPasswords());
-  const [currentView, setCurrentView] = useState<string>('today');
+  const [currentView, setCurrentView] = useState<string>(() => {
+    const saved = localStorage.getItem('nura_current_view');
+    return saved && ['today','agenda','meetings','notes','tasks','projects','inbox','files','useful_links','email','chat','assistant','pomodoro','timeline','settings','passwords','meeting_mode'].includes(saved) ? saved : (initialView || 'today');
+  });
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     try {
       return JSON.parse(localStorage.getItem('nura_theme') || '"auto"');

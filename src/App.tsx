@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { useSync } from './hooks/useSync';
 import { Sidebar } from './components/layout/Sidebar';
@@ -106,10 +106,23 @@ const MainLayout: React.FC = () => {
   );
 };
 
+// 根据 URL 路径决定初始视图（供 Google OAuth 回调等场景使用）
+function getInitialView(): string {
+  const path = window.location.pathname.replace(/^\//, '') || 'today';
+  const viewMap: Record<string, string> = {
+    settings: 'settings', tasks: 'tasks', meetings: 'meetings',
+    notes: 'notes', projects: 'projects', inbox: 'inbox',
+    files: 'files', agenda: 'agenda', pomodoro: 'pomodoro',
+    passwords: 'passwords', assistant: 'assistant', timeline: 'timeline',
+    email: 'email', chat: 'chat', useful_links: 'useful_links'
+  };
+  return viewMap[path] || 'today';
+}
+
 export default function App() {
   return (
     <AuthGate>
-      <AppProvider>
+      <AppProvider initialView={getInitialView()}>
         <MainLayout />
       </AppProvider>
     </AuthGate>

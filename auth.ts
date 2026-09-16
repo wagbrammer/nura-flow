@@ -144,11 +144,11 @@ export const createSessionCookie = async (
 
   return `${SESSION_COOKIE}=${payload}.${signature}; Path=/; HttpOnly; ${
     isSecure ? 'Secure; ' : ''
-  }SameSite=Strict; Max-Age=${SESSION_DURATION_SECONDS}`;
+  }SameSite=Lax; Max-Age=${SESSION_DURATION_SECONDS}`;
 };
 
 export const clearSessionCookie = (): string =>
-  `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+  `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 
 export const hasValidSession = async (
   cookieHeader: string | null | undefined,
