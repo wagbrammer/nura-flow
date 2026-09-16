@@ -32,7 +32,7 @@ import {
   notificationsStore,
   chatMessagesStore
 } from "./server/data-store-db";
-import { initializeDatabase } from "./server/db";
+import { initializeDatabase, query } from "./server/db";
 
 // Carregar configuração da logo do servidor
 const logoConfigPath = path.join(process.cwd(), 'logo-config.json');
@@ -157,35 +157,44 @@ async function startServer() {
     oauth2Client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
   }
 
-  // Persistent token storage in JSON file (survives server restart)
-  // Use persistent volume on Render (/app/server/data) or fallback to cwd
-  const TOKENS_DATA_DIR = path.join(process.cwd(), 'server', 'data');
-  const GOOGLE_TOKENS_PATH = path.join(TOKENS_DATA_DIR, 'google-tokens.json');
-  try { fs.mkdirSync(TOKENS_DATA_DIR, { recursive: true }); } catch {}
-
-  function loadStoredTokens(): { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number } | null {
+  // Persistent token storage in PostgreSQL (survives Render deploys)
+  async function loadStoredTokens(): Promise<{ access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number } | null> {
     try {
-      if (fs.existsSync(GOOGLE_TOKENS_PATH)) {
-        const data = JSON.parse(fs.readFileSync(GOOGLE_TOKENS_PATH, 'utf8'));
-        console.log("✅ Tokens do Google carregados:", data.access_token ? 'sim' : 'não');
-        return data;
+      const rows = await query<{ tokens: any }>('SELECT tokens FROM google_tokens WHERE id = $1', ['main']);
+      if (rows.length > 0 && rows[0].tokens?.access_token) {
+        console.log("✅ Tokens do Google carregados do banco:", rows[0].tokens.access_token ? 'sim' : 'não');
+        return rows[0].tokens;
       }
     } catch (err) {
-      console.error("Erro ao carregar tokens:", err);
+      console.error("Erro ao carregar tokens do banco:", err);
     }
     return null;
   }
 
-  function saveStoredTokens(tokens: { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number }): void {
+  async function saveStoredTokens(tokens: { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number }): Promise<void> {
     try {
-      fs.writeFileSync(GOOGLE_TOKENS_PATH, JSON.stringify(tokens, null, 2));
-      console.log(`✅ Tokens do Google salvos (${tokens.access_token ? 'com token' : 'sem token'})`);
+      await query(
+        `INSERT INTO google_tokens (id, tokens) VALUES ($1, $2)
+         ON CONFLICT (id) DO UPDATE SET tokens = $2, updated_at = CURRENT_TIMESTAMP`,
+        ['main', JSON.stringify(tokens)]
+      );
+      console.log(`✅ Tokens do Google salvos no banco (${tokens.access_token ? 'com token' : 'sem token'})`);
     } catch (err) {
-      console.error("Erro ao salvar tokens:", err);
+      console.error("Erro ao salvar tokens no banco:", err);
     }
   }
 
-  let storedTokens: { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number } | null = loadStoredTokens();
+  let storedTokens: { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number } | null = null;
+
+  // Load stored tokens (async, will be populated after DB init)
+  loadStoredTokens().then(tokens => {
+    storedTokens = tokens;
+    if (tokens) {
+      console.log(`✅ Tokens do Google carregados do banco (${tokens.access_token ? 'ativos' : 'vazios'})`);
+    } else {
+      console.log(`⚠️ Nenhum token do Google encontrado no banco`);
+    }
+  }).catch(err => console.error("Erro ao carregar tokens:", err));
 
   function getOAuthClient(): Auth.OAuth2Client | null {
     if (!oauth2Client) return null;
@@ -774,7 +783,7 @@ async function startServer() {
   });
 
   // Google OAuth Routes
-  app.get("/api/auth/google", (req, res) => {
+  app.get("/api/auth/google", async (req, res) => {
     if (!isGoogleConfigured()) {
       return res.status(503).json({ error: "Google OAuth não configurado. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no .env" });
     }
@@ -791,7 +800,7 @@ async function startServer() {
     // If force reconnect, clear old tokens first
     if (forceReconnect) {
       storedTokens = null;
-      try { fs.unlinkSync(GOOGLE_TOKENS_PATH); } catch {}
+      try { await query('DELETE FROM google_tokens WHERE id = $1', ['main']); } catch {}
       console.log("🔄 Reconexão forçada - tokens antigos removidos");
     }
 
@@ -870,7 +879,7 @@ async function startServer() {
 
   app.post("/api/auth/google/disconnect", async (req, res) => {
     storedTokens = null;
-    try { fs.unlinkSync(GOOGLE_TOKENS_PATH); } catch {}
+    try { await query('DELETE FROM google_tokens WHERE id = $1', ['main']); } catch {}
     res.json({ success: true, message: "Desconectado do Google" });
   });
 

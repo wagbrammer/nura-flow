@@ -138,5 +138,15 @@ export async function initializeDatabase(): Promise<void> {
     );
   `);
 
+  // Tabela para armazenar tokens do Google (persistente)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS google_tokens (
+      id TEXT PRIMARY KEY,
+      tokens JSONB NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   console.log('[DB] Tabelas garantidas no PostgreSQL');
 }
