@@ -1286,15 +1286,21 @@ async function startServer() {
 
       const spaces = (response as any).data?.spaces || [];
       const formattedSpaces = spaces.map((space: any) => {
-        // For DMs, try to get the contact name from dmDetails or use displayName
+        // For DMs, try multiple sources for the display name
         let displayName = space.displayName;
-        if (!displayName && space.spaceType === 'DM' && space.dmDetails) {
-          // Try to extract name from the DM structure
-          displayName = space.dmDetails?.contactName || 'Conversa Direta';
+        if (!displayName && space.spaceType === 'DM') {
+          // Try to get contact info from dmDetails
+          if (space.dmDetails?.contactInfo?.contactName) {
+            displayName = space.dmDetails.contactInfo.contactName;
+          } else if (space.dmDetails?.contactName) {
+            displayName = space.dmDetails.contactName;
+          } else if (space.title) {
+            displayName = space.title;
+          }
         }
         return {
           name: space.name,
-          displayName: displayName || space.spaceType || 'Sem nome',
+          displayName: displayName || space.spaceType || 'Conversa Direta',
           spaceType: space.spaceType,
           spaceId: space.name?.split('/').pop(),
           isDM: space.spaceType === 'DM',
