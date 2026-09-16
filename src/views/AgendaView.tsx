@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Calendar as CalendarIcon,
@@ -44,6 +44,28 @@ export const AgendaView: React.FC = () => {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('week');
   const [selectedMeeting, setSelectedMeeting] = useState<any | null>(meetings[0] || null);
   const [showGoogleEvents, setShowGoogleEvents] = useState(true);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleSyncMsg, setGoogleSyncMsg] = useState<string | null>(null);
+
+  // Auto-sync to Google Calendar when component mounts (if connected)
+  useEffect(() => {
+    let cancelled = false;
+    async function autoSync() {
+      try {
+        const res = await fetch('/api/auth/google/status', { credentials: 'same-origin' });
+        const data = await res.json();
+        if (!cancelled && data.connected) {
+          const syncRes = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });
+          const syncData = await syncRes.json();
+          if (!cancelled) {
+            setGoogleSyncMsg(syncData.errors ? `✅ ${syncData.synced} synced, ${syncData.errors} errors` : `✅ ${syncData.synced} events synced`);
+          }
+        }
+      } catch {}
+    }
+    autoSync();
+    return () => { cancelled = true; };
+  }, []);
   const [isMiniAtaModalOpen, setIsMiniAtaModalOpen] = useState(false);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
@@ -229,6 +251,63 @@ export const AgendaView: React.FC = () => {
           >
             <Plus className="w-4 h-4" />
             <span>Novo Evento</span>
+          </button>
+
+          {/* Sync with Google Calendar */}
+          <button
+            type="button"
+            onClick={async () => {
+              setGoogleSyncing(true);
+              setGoogleSyncMsg(null);
+              try {
+                const res = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });
+                const data = await res.json();
+                if (res.ok) {
+                  setGoogleSyncMsg(`✅ ${data.synced} reuniões sincronizadas com Google Calendar${data.errors ? `, ${data.errors} erros` : ''}`);
+                } else {
+                  setGoogleSyncMsg(`❌ ${data.error || 'Erro ao sincronizar'}`);
+                }
+              } catch (err) {
+                setGoogleSyncMsg('❌ Erro de conexão');
+              } finally {
+                setGoogleSyncing(false);
+              }
+            }}
+            disabled={googleSyncing}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-bold shadow-xs transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${googleSyncing ? 'animate-spin' : ''}`} />
+            <span>Sincronizar Google Calendar</span>
+          </button>
+          {googleSyncMsg && (
+            <span className="text-[11px] text-slate-600 dark:text-slate-400">{googleSyncMsg}</span>
+          )}
+
+          {/* Sync with Google Calendar button */}
+          <button
+            type="button"
+            onClick={async () => {
+              setGoogleSyncing(true);
+              setGoogleSyncMsg(null);
+              try {
+                const res = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });
+                const data = await res.json();
+                if (res.ok) {
+                  setGoogleSyncMsg(`✅ ${data.synced} reuniões sincronizadas${data.errors ? `, ${data.errors} erros` : ''}`);
+                } else {
+                  setGoogleSyncMsg(`❌ ${data.error || 'Erro ao sincronizar'}`);
+                }
+              } catch (err) {
+                setGoogleSyncMsg('❌ Erro de conexão');
+              } finally {
+                setGoogleSyncing(false);
+              }
+            }}
+            disabled={googleSyncing}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-bold shadow-xs transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${googleSyncing ? 'animate-spin' : ''}`} />
+            <span>Sincronizar Google</span>
           </button>
         </div>
       </div>

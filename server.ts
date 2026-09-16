@@ -157,9 +157,35 @@ async function startServer() {
     oauth2Client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
   }
 
-  // In-memory token storage (for single-user local dev)
-  // In production, this should be persisted securely per user
-  let storedTokens: { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number } | null = null;
+  // Persistent token storage in JSON file (survives server restart)
+  // Use persistent volume on Render (/app/server/data) or fallback to cwd
+  const TOKENS_DATA_DIR = path.join(process.cwd(), 'server', 'data');
+  const GOOGLE_TOKENS_PATH = path.join(TOKENS_DATA_DIR, 'google-tokens.json');
+  try { fs.mkdirSync(TOKENS_DATA_DIR, { recursive: true }); } catch {}
+
+  function loadStoredTokens(): { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number } | null {
+    try {
+      if (fs.existsSync(GOOGLE_TOKENS_PATH)) {
+        const data = JSON.parse(fs.readFileSync(GOOGLE_TOKENS_PATH, 'utf8'));
+        console.log("✅ Tokens do Google carregados:", data.access_token ? 'sim' : 'não');
+        return data;
+      }
+    } catch (err) {
+      console.error("Erro ao carregar tokens:", err);
+    }
+    return null;
+  }
+
+  function saveStoredTokens(tokens: { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number }): void {
+    try {
+      fs.writeFileSync(GOOGLE_TOKENS_PATH, JSON.stringify(tokens, null, 2));
+      console.log(`✅ Tokens do Google salvos (${tokens.access_token ? 'com token' : 'sem token'})`);
+    } catch (err) {
+      console.error("Erro ao salvar tokens:", err);
+    }
+  }
+
+  let storedTokens: { access_token?: string; refresh_token?: string; scope?: string; expiry_date?: number } | null = loadStoredTokens();
 
   function getOAuthClient(): Auth.OAuth2Client | null {
     if (!oauth2Client) return null;
@@ -785,7 +811,8 @@ async function startServer() {
       const { tokens } = await client.getToken(code as string);
       storedTokens = tokens;
       client.setCredentials(tokens);
-      console.log("Google tokens salvos com sucesso!");
+      saveStoredTokens(tokens);
+      console.log("✅ Google tokens salvos com sucesso!");
       // Generate URL-based session token (more reliable than cookie across redirects)
       const authConfig = getAuthConfig(process.env);
       if (authConfig) {
@@ -816,6 +843,7 @@ async function startServer() {
         const { credentials } = await client.refreshAccessToken();
         storedTokens = { ...storedTokens, ...credentials };
         client.setCredentials(storedTokens);
+        saveStoredTokens(storedTokens);
       } catch (e) {
         return res.json({ configured: true, connected: false, message: "Token expirado, reconexão necessária" });
       }
@@ -826,7 +854,34 @@ async function startServer() {
 
   app.post("/api/auth/google/disconnect", async (req, res) => {
     storedTokens = null;
+    try { fs.unlinkSync(GOOGLE_TOKENS_PATH); } catch {}
     res.json({ success: true, message: "Desconectado do Google" });
+  });
+
+  // Force sync all meetings to Google Calendar (manual trigger from UI)
+  app.get("/api/google/calendar/sync-all", requireAuth, async (req, res) => {
+    if (!isGoogleConfigured()) return res.status(503).json({ error: "Google não configurado" });
+    const client = getOAuthClient();
+    if (!client || !storedTokens?.access_token) {
+      return res.status(401).json({ error: "Google não conectado" });
+    }
+    try {
+      const meetings = await meetingsStore.getAll();
+      let synced = 0;
+      let errors = 0;
+      for (const meeting of meetings) {
+        try {
+          await syncMeetingToGoogle(meeting);
+          synced++;
+        } catch (err: any) {
+          console.error(`Erro ao sync reunião ${meeting.id}:`, err.message);
+          errors++;
+        }
+      }
+      res.json({ synced, errors, message: `${synced} reuniões sincronizadas, ${errors} erros` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // Exchange OAuth session token for a proper cookie-based session
@@ -1066,9 +1121,15 @@ async function startServer() {
 
   // Synchronize a single meeting with Google Calendar
   async function syncMeetingToGoogle(meeting: any): Promise<void> {
-    if (!isGoogleConfigured()) return;
+    if (!isGoogleConfigured()) {
+      console.log(`⏭️ Sync pulado para "${meeting.title}" - Google não configurado`);
+      return;
+    }
     const client = getOAuthClient();
-    if (!client || !storedTokens?.access_token) return;
+    if (!client || !storedTokens?.access_token) {
+      console.log(`⏭️ Sync pulado para "${meeting.title}" - tokens não disponíveis`);
+      return;
+    }
     try {
       const calendar = google.calendar({ version: 'v3', auth: client });
       const dateTimeStart = `${meeting.date}T${meeting.startTime}:00`;
@@ -1101,12 +1162,15 @@ async function startServer() {
         // Save the Google event ID back to the meeting in the store
         const googleEventId = (result as any)?.data?.id;
         if (googleEventId) {
-          const updatedMeeting = await meetingsStore.update(meeting.id, { eventId: googleEventId });
+          await meetingsStore.update(meeting.id, { eventId: googleEventId });
           console.log(`✅ Reunião "${meeting.title}" criada no Google Calendar (ID: ${googleEventId})`);
+        } else {
+          console.warn(`⚠️ Reunião "${meeting.title}" criada mas eventId não retornado`);
         }
       }
     } catch (error: any) {
-      console.error("Erro ao sincronizar com Google Calendar:", error.message);
+      console.error(`❌ Erro ao sincronizar "${meeting.title}":`, error.message);
+      throw error; // Re-throw so caller knows it failed
     }
   }
 
