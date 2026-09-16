@@ -253,7 +253,7 @@ export const AgendaView: React.FC = () => {
             <span>Novo Evento</span>
           </button>
 
-          {/* Sync with Google Calendar */}
+          {/* Sync with Google Calendar button */}
           <button
             type="button"
             onClick={async () => {
@@ -278,36 +278,6 @@ export const AgendaView: React.FC = () => {
           >
             <RefreshCw className={`w-4 h-4 ${googleSyncing ? 'animate-spin' : ''}`} />
             <span>Sincronizar Google Calendar</span>
-          </button>
-          {googleSyncMsg && (
-            <span className="text-[11px] text-slate-600 dark:text-slate-400">{googleSyncMsg}</span>
-          )}
-
-          {/* Sync with Google Calendar button */}
-          <button
-            type="button"
-            onClick={async () => {
-              setGoogleSyncing(true);
-              setGoogleSyncMsg(null);
-              try {
-                const res = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });
-                const data = await res.json();
-                if (res.ok) {
-                  setGoogleSyncMsg(`✅ ${data.synced} reuniões sincronizadas${data.errors ? `, ${data.errors} erros` : ''}`);
-                } else {
-                  setGoogleSyncMsg(`❌ ${data.error || 'Erro ao sincronizar'}`);
-                }
-              } catch (err) {
-                setGoogleSyncMsg('❌ Erro de conexão');
-              } finally {
-                setGoogleSyncing(false);
-              }
-            }}
-            disabled={googleSyncing}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-bold shadow-xs transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${googleSyncing ? 'animate-spin' : ''}`} />
-            <span>Sincronizar Google</span>
           </button>
         </div>
       </div>
