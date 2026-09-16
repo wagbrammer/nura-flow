@@ -304,8 +304,8 @@ export const ChatView: React.FC = () => {
             </h1>
             <p className="text-xs text-slate-500">
               {googleConnected
-                ? 'Conectado ao Google Chat — enviando mensagens diretamente'
-                : 'Conecte-se ao Google nas configurações para usar o Chat'}
+                ? 'Conectado ao Google Chat'
+                : '⚠️ Reconncte ao Google nas Configurações para usar o Chat'}
             </p>
           </div>
         </div>
