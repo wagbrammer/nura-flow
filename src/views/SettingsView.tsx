@@ -248,7 +248,7 @@ export const SettingsView: React.FC = () => {
   const [weatherLongitude, setWeatherLongitude] = useState(weatherLocation?.longitude?.toString() || '');
   const [isSavingWeather, setIsSavingWeather] = useState(false);
   const [weatherSavedMessage, setWeatherSavedMessage] = useState<string | null>(null);
-  const [googleStatus, setGoogleStatus] = useState<{ configured: boolean; connected: boolean; message: string } | null>(null);
+  const [googleStatus, setGoogleStatus] = useState<{ configured: boolean; connected: boolean; message: string; hasWriteAccess?: boolean } | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
@@ -1064,6 +1064,12 @@ export const SettingsView: React.FC = () => {
                   Sincronizar
                 </button>
                 <button
+                  onClick={() => { window.location.href = '/api/auth/google?force=true'; }}
+                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition-colors flex items-center gap-1 border border-amber-200 dark:border-amber-800/50"
+                >
+                  <RotateCcw className="w-3 h-3" /> Reconectar com permissões completas
+                </button>
+                <button
                   onClick={handleDisconnectGoogle}
                   className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors flex items-center gap-1"
                 >
@@ -1149,8 +1155,8 @@ export const SettingsView: React.FC = () => {
                 <Calendar className={`w-3.5 h-3.5 ${googleStatus?.connected ? 'text-blue-600' : 'text-slate-400'}`} />
                 Calendar
               </span>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${googleStatus?.connected ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
-                {googleStatus?.connected ? 'Ativo' : 'Inativo'}
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${googleStatus?.connected && googleStatus?.hasWriteAccess ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'}`}>
+                {googleStatus?.connected ? (googleStatus.hasWriteAccess ? 'Ativo ✓' : 'Ativo ⚠️') : 'Inativo'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 leading-tight">

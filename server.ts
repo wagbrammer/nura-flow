@@ -780,16 +780,23 @@ async function startServer() {
     if (!client) return res.status(503).json({ error: "Cliente OAuth não inicializado" });
 
     const scopes = [
-      'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/calendar',        // Leitura e escrita no calendário
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/drive.readonly'
     ];
 
+    const forceReconnect = req.query.force === 'true';
+    // If force reconnect, clear old tokens first
+    if (forceReconnect) {
+      storedTokens = null;
+      try { fs.unlinkSync(GOOGLE_TOKENS_PATH); } catch {}
+      console.log("🔄 Reconexão forçada - tokens antigos removidos");
+    }
+
     const authUrl = client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
-      prompt: 'consent',
+      prompt: 'consent',  // Always show consent screen to ensure proper scopes
       state: 'nura_calendar'
     });
     res.redirect(authUrl);
@@ -849,7 +856,14 @@ async function startServer() {
       }
     }
 
-    res.json({ configured: true, connected: true, message: "Conectado ao Google" });
+    // Check scopes
+    const hasWriteScope = storedTokens.scope?.includes('calendar') && !storedTokens.scope.includes('calendar.readonly');
+    res.json({
+      configured: true,
+      connected: true,
+      hasWriteAccess: hasWriteScope,
+      message: hasWriteScope ? "Conectado com permissões completas" : "Conectado, mas pode precisar reconectar com permissões de escrita"
+    });
   });
 
   app.post("/api/auth/google/disconnect", async (req, res) => {
