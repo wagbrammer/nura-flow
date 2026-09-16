@@ -1315,6 +1315,48 @@ async function startServer() {
     }
   });
 
+  // List messages from a Google Chat space
+  app.get("/api/google/chat/messages/:spaceId", requireAuth, async (req, res) => {
+    const { spaceId } = req.params;
+    try {
+      if (!isGoogleConfigured()) {
+        return res.status(503).json({ error: "Google OAuth não configurado" });
+      }
+      const client = getOAuthClient();
+      if (!client || !storedTokens?.access_token) {
+        return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
+      }
+
+      const chat = google.chat({ version: 'v1', auth: client });
+      const response = await Promise.race([
+        (chat.spaces.messages.list as any)({
+          parent: `spaces/${spaceId}`,
+          pageSize: 100,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      ]);
+
+      const messages = (response as any).data?.messages || [];
+      const formattedMessages = messages.map((msg: any) => ({
+        id: msg.name?.split('/').pop(),
+        text: msg.text || '',
+        sender: {
+          name: msg.sender?.name || 'unknown',
+          displayName: msg.sender?.displayName || 'Desconhecido',
+          type: msg.sender?.type || 'HUMAN'
+        },
+        createTime: msg.createTime || new Date().toISOString(),
+        updatedTime: msg.updatedTime,
+      }));
+
+      console.log(`✅ Encontradas ${formattedMessages.length} mensagens na sala ${spaceId}`);
+      res.json({ messages: formattedMessages });
+    } catch (error: any) {
+      console.error("Erro ao buscar mensagens:", error.message);
+      res.status(500).json({ error: error.message || "Erro ao buscar mensagens" });
+    }
+  });
+
   // List all contacts that can be messaged via DM
   app.get("/api/google/chat/contacts", requireAuth, async (req, res) => {
     try {

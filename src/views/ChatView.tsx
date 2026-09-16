@@ -31,8 +31,16 @@ export const ChatView: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [loadingSpaces, setLoadingSpaces] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [googleSpaces, setGoogleSpaces] = useState<GoogleSpace[]>([]);
   const [sendMessageError, setSendMessageError] = useState<string | null>(null);
+
+  // DM state
+  const [showDMInput, setShowDMInput] = useState(false);
+  const [dmEmail, setDmEmail] = useState('');
+  const [dmText, setDmText] = useState('');
+  const [sendingDM, setSendingDM] = useState(false);
+  const [dmError, setDmError] = useState<string | null>(null);
 
   // Local chat messages (for history display)
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
@@ -91,7 +99,31 @@ export const ChatView: React.FC = () => {
   );
 
   const selectedSpace = googleSpaces.find(s => s.spaceId === selectedSpaceId);
-  const spaceMessages = selectedSpaceId ? (chatMessages[selectedSpaceId] || []) : [];
+  const [spaceMessages, setSpaceMessages] = useState<ChatMessage[]>([]);
+
+  // Fetch messages when a space is selected
+  useEffect(() => {
+    if (!selectedSpaceId) {
+      setSpaceMessages([]);
+      return;
+    }
+
+    console.log(`🔍 Buscando mensagens da sala ${selectedSpaceId}...`);
+    setLoadingMessages(true);
+    fetch(`/api/google/chat/messages/${selectedSpaceId}`, { credentials: 'same-origin' })
+      .then(res => {
+        console.log(`📡 Resposta das mensagens:`, res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log(`📦 Mensagens recebidas:`, data);
+        setSpaceMessages(data.messages || []);
+      })
+      .catch(err => {
+        console.error('❌ Erro ao buscar mensagens:', err);
+      })
+      .finally(() => setLoadingMessages(false));
+  }, [selectedSpaceId]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -110,24 +142,6 @@ export const ChatView: React.FC = () => {
     setIsSending(true);
     setSendMessageError(null);
 
-    // Optimistic update
-    const newMessage: ChatMessage = {
-      id: `msg_${Date.now()}`,
-      spaceId: selectedSpaceId,
-      sender: {
-        name: `users/${user.email.split('@')[0]}`,
-        displayName: user.name,
-        type: 'HUMAN'
-      },
-      text: messageText.trim(),
-      createTime: new Date().toISOString()
-    };
-
-    setChatMessages(prev => ({
-      ...prev,
-      [selectedSpaceId]: [...(prev[selectedSpaceId] || []), newMessage]
-    }));
-
     // Send via API if Google is connected
     if (googleConnected && selectedSpace) {
       try {
@@ -137,7 +151,7 @@ export const ChatView: React.FC = () => {
           credentials: 'same-origin',
           body: JSON.stringify({
             roomId: selectedSpace.spaceId,
-            text: `${user.name}: ${messageText.trim()}`
+            text: messageText.trim()
           })
         });
 
@@ -148,6 +162,16 @@ export const ChatView: React.FC = () => {
         }
 
         console.log('✅ Mensagem enviada via API:', data.messageId);
+
+        // Refresh messages after sending
+        setTimeout(() => {
+          fetch(`/api/google/chat/messages/${selectedSpace.spaceId}`, { credentials: 'same-origin' })
+            .then(res => res.json())
+            .then(data => {
+              setSpaceMessages(data.messages || []);
+            })
+            .catch(err => console.error('Erro ao atualizar mensagens:', err));
+        }, 1000);
       } catch (err: any) {
         console.warn('API falhou:', err.message);
         setSendMessageError(err.message);
@@ -157,17 +181,6 @@ export const ChatView: React.FC = () => {
     setMessageText('');
     setIsSending(false);
   };
-
-  const handleOpenInChat = (space: GoogleSpace) => {
-    const url = `https://chat.google.com/u/0/${space.name}`;
-    window.open(url, '_blank');
-  };
-
-  const [showDMInput, setShowDMInput] = useState(false);
-  const [dmEmail, setDmEmail] = useState('');
-  const [dmText, setDmText] = useState('');
-  const [sendingDM, setSendingDM] = useState(false);
-  const [dmError, setDmError] = useState<string | null>(null);
 
   const handleSendDM = async () => {
     if (!dmText.trim() || !dmEmail.trim()) return;
@@ -202,6 +215,11 @@ export const ChatView: React.FC = () => {
     } finally {
       setSendingDM(false);
     }
+  };
+
+  const handleOpenInChat = (space: GoogleSpace) => {
+    const url = `https://chat.google.com/u/0/${space.name}`;
+    window.open(url, '_blank');
   };
 
   return (
@@ -254,7 +272,7 @@ export const ChatView: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-purple-600" />
-              Enviar Mensagem Direta
+              Enviar Mensagem Direta (DM)
             </h3>
             <button
               onClick={() => setShowDMInput(false)}
@@ -414,13 +432,13 @@ export const ChatView: React.FC = () => {
 
         {/* Conversation View (8 cols) */}
         <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-          {selectedSpaceId ? (
+          {selectedSpace ? (
             <>
               {/* Conversation Header */}
               <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    selectedSpace?.isDM
+                    selectedSpace.isDM
                       ? 'bg-purple-100 dark:bg-purple-950 text-purple-600'
                       : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600'
                   }`}>
@@ -428,17 +446,17 @@ export const ChatView: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                      {selectedSpace?.displayName}
+                      {selectedSpace.displayName}
                     </h3>
                     <p className="text-[10px] text-slate-400">
-                      {spaceMessages.length} mensagem(s) • {selectedSpace?.isDM ? 'Conversa direta' : 'Sala'}
+                      {spaceMessages.length} mensagem(s) • {selectedSpace.isDM ? 'Conversa direta' : 'Sala'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => selectedSpace && handleOpenInChat(selectedSpace)}
+                    onClick={() => handleOpenInChat(selectedSpace)}
                     className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-colors"
                     title="Abrir no Google Chat"
                   >
@@ -449,7 +467,12 @@ export const ChatView: React.FC = () => {
 
               {/* Messages Area */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={messagesEndRef}>
-                {spaceMessages.length === 0 ? (
+                {loadingMessages ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                    <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                    <p className="text-sm">Carregando mensagens...</p>
+                  </div>
+                ) : spaceMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400">
                     <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
                     <p className="text-sm font-medium">Nenhuma mensagem ainda</p>
@@ -462,9 +485,9 @@ export const ChatView: React.FC = () => {
                   </div>
                 ) : (
                   spaceMessages.map((msg, idx) => {
-                    const isOwn = msg.sender.name === `users/${user.email.split('@')[0]}`;
+                    const isOwn = msg.sender.name.startsWith('users/');
                     return (
-                      <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg.id || idx} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[70%] ${isOwn ? 'flex-row-reverse' : 'flex-row'} space-x-2`}>
                           <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                             <div className={`p-3 rounded-2xl ${
