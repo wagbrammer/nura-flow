@@ -816,8 +816,8 @@ async function startServer() {
       'https://www.googleapis.com/auth/contacts.readonly',     // Ler contatos do Google
       'https://www.googleapis.com/auth/contacts',              // Ler e escrever contatos
       'https://www.googleapis.com/auth/chat.messages.create',  // Enviar mensagens no Google Chat
-      'https://www.googleapis.com/auth/chat.spaces.readonly',   // Listar espaços/salas
-      'https://www.googleapis.com/auth/chat.spaces.create',     // Criar DMs
+      'https://www.googleapis.com/auth/chat.messages.read',    // Ler mensagens do Google Chat
+      'https://www.googleapis.com/auth/chat.spaces.readonly',  // Listar espaços/salas
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/drive.readonly'
     ];

@@ -223,6 +223,10 @@ export const ChatView: React.FC = () => {
       const data = await res.json();
 
       if (!res.ok) {
+        // Check if response includes chatUrl for direct link
+        if (data.chatUrl) {
+          window.open(data.chatUrl, '_blank');
+        }
         throw new Error(data.error || 'Erro ao enviar DM');
       }
 
