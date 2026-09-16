@@ -892,11 +892,18 @@ async function startServer() {
 
     // Check scopes
     const hasWriteScope = storedTokens.scope?.includes('calendar') && !storedTokens.scope.includes('calendar.readonly');
+    const hasContactsScope = storedTokens.scope?.includes('https://www.googleapis.com/auth/contacts');
+    const hasContactsReadOnlyScope = storedTokens.scope?.includes('https://www.googleapis.com/auth/contacts.readonly');
+
     res.json({
       configured: true,
       connected: true,
       hasWriteAccess: hasWriteScope,
-      message: hasWriteScope ? "Conectado com permissões completas" : "Conectado, mas pode precisar reconectar com permissões de escrita"
+      hasContactsAccess: hasContactsScope || hasContactsReadOnlyScope,
+      message: hasWriteScope
+        ? "Conectado com permissões completas"
+        : "Conectado, mas pode precisar reconectar com permissões de escrita",
+      contactsScope: hasContactsScope ? "total" : hasContactsReadOnlyScope ? "apenas leitura" : "nenhum"
     });
   });
 
@@ -1168,26 +1175,34 @@ async function startServer() {
         return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
       }
 
+      console.log("📇 Buscando contatos do Google...");
       const people = google.people({ version: 'v1', auth: client });
-      const response = await people.people.connections.list({
-        resourceName: 'people/me',
-        pageSize: 200,
-        personFields: 'names,emailAddresses,phoneNumbers,photos',
-      });
+
+      // Use connections.list instead of searchContacts (more reliable)
+      const timeoutPromise = new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: API do Google demorou para responder')), 15000)
+      );
+      const response = await Promise.race([
+        people.people.connections.list({
+          resourceName: 'people/me',
+          pageSize: 200,
+          personFields: 'names,emailAddresses,phoneNumbers',
+        }),
+        timeoutPromise
+      ]);
 
       const connections = response.data.connections || [];
-      const formattedContacts = connections.map(person => {
+      console.log(`✅ Encontrados ${connections.length} contatos no Google`);
+
+      const formattedContacts = connections.map((person: any) => {
         const name = person.names?.[0]?.displayName || '(Sem nome)';
         const email = person.emailAddresses?.[0]?.value || '';
         const phone = person.phoneNumbers?.[0]?.value || '';
-        const photo = person.photos?.[0]?.url || '';
         return {
           resourceName: person.resourceName,
-          etag: person.etag,
           name,
           email,
           phone,
-          photo,
           givenName: person.names?.[0]?.givenName || '',
           familyName: person.names?.[0]?.familyName || '',
         };
@@ -1195,7 +1210,12 @@ async function startServer() {
 
       res.json({ contacts: formattedContacts });
     } catch (error: any) {
-      console.error("Erro ao buscar contatos do Google:", error);
+      console.error("❌ Erro ao buscar contatos do Google:", error.message);
+      if (error.message?.includes('APINotEnabled') || error.code === 403) {
+        return res.status(500).json({
+          error: "Google People API não habilitada. Vá em: Google Cloud Console → APIs & Services → Library → busque por 'People API' e clique em ENABLE"
+        });
+      }
       res.status(500).json({ error: error.message || "Erro ao buscar contatos" });
     }
   });

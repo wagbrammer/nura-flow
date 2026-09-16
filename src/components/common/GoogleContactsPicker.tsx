@@ -115,6 +115,7 @@ export const GoogleContactsPicker: React.FC<GoogleContactsPickerProps> = ({
                 <User className="w-6 h-6 text-slate-400" />
               </div>
               <p className="text-sm text-slate-500">Carregando contatos...</p>
+              <p className="text-xs text-slate-400 mt-2 max-w-xs">Se demorar, verifique se a "Google People API" está habilitada no Google Cloud Console</p>
             </div>
           ) : filteredContacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">

@@ -1155,8 +1155,8 @@ export const SettingsView: React.FC = () => {
                 <Calendar className={`w-3.5 h-3.5 ${googleStatus?.connected ? 'text-blue-600' : 'text-slate-400'}`} />
                 Calendar
               </span>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${googleStatus?.connected && googleStatus?.hasWriteAccess ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'}`}>
-                {googleStatus?.connected ? (googleStatus.hasWriteAccess ? 'Ativo ✓' : 'Ativo ⚠️') : 'Inativo'}
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${googleStatus?.connected && googleStatus?.hasWriteAccess ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : googleStatus?.connected ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                {googleStatus?.connected ? (googleStatus.hasWriteAccess ? 'Ativo ✓' : googleStatus.hasContactsAccess ? 'Ativo (contatos)' : 'Ativo ⚠️') : 'Inativo'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 leading-tight">
