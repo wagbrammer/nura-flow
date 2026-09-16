@@ -1082,6 +1082,11 @@ async function startServer() {
       return next();
     }
 
+    // Bypass authentication for Google OAuth callback redirect
+    if (req.path.startsWith('/settings') && req.query.google === 'connected') {
+      return next();
+    }
+
     // Bypass authentication for public Pomodoro API endpoints
     if (req.path.startsWith("/api/pomodoro")) {
       if (req.path === "/api/pomodoro/state" && req.method === "GET") {
