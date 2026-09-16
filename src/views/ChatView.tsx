@@ -492,24 +492,15 @@ export const ChatView: React.FC = () => {
               </div>
 
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={messagesEndRef}>
+              <div className="flex-1 overflow-y-auto p-4">
                 <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
                   <p className="text-sm font-medium">Histórico de mensagens</p>
-                  <p className="text-xs mt-1">A API do Google Chat não permite ler mensagens antigas</p>
+                  <p className="text-xs mt-1">A API do Google Chat não permite ler mensagens antigas via REST API</p>
                   <p className="text-xs mt-2 text-emerald-600">Você pode enviar novas mensagens para esta sala</p>
                 </div>
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                    <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
-                    <p className="text-sm font-medium">Nenhuma mensagem ainda</p>
-                    <p className="text-xs mt-1">Seja o primeiro a escrever!</p>
-                    {googleConnected && (
-                      <p className="text-xs mt-2 text-emerald-600">
-                        Mensagens serão enviadas diretamente ao Google Chat
-                      </p>
-                    )}
-                  </div>
-  
+              </div>
+
               {/* Composer */}
               <div className="p-4 border-t border-slate-200 dark:border-slate-800">
                 <form onSubmit={handleSendMessage} className="space-y-2">
