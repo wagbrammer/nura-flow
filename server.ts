@@ -1163,8 +1163,8 @@ async function startServer() {
 
       const event: any = {
         summary: meeting.title,
-        start: { dateTime: dateTimeStart },
-        end: { dateTime: dateTimeEnd },
+        start: { dateTime: dateTimeStart, timeZone: 'America/Sao_Paulo' },
+        end: { dateTime: dateTimeEnd, timeZone: 'America/Sao_Paulo' },
         description: meeting.agenda || '',
       };
       if (meeting.location) event.location = meeting.location;
