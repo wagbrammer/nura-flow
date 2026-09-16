@@ -1077,6 +1077,11 @@ async function startServer() {
       req.path.startsWith('/static/');
     if (isStaticAsset) return next();
 
+    // Bypass authentication for Google OAuth endpoints
+    if (req.path.startsWith('/api/auth/google')) {
+      return next();
+    }
+
     // Bypass authentication for public Pomodoro API endpoints
     if (req.path.startsWith("/api/pomodoro")) {
       if (req.path === "/api/pomodoro/state" && req.method === "GET") {

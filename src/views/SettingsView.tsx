@@ -332,8 +332,10 @@ export const SettingsView: React.FC = () => {
     // Verificar se veio do callback do Google (parâmetro google=connected)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('google') === 'connected') {
-      // Recarregar a página para garantir que o estado seja atualizado corretamente
-      window.location.reload();
+      // Remover o parâmetro da URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Atualizar o status sem recarregar a página
+      fetchGoogleStatus();
     }
   }, []);
 
