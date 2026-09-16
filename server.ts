@@ -431,18 +431,24 @@ async function startServer() {
     if (!meeting.createdAt) meeting.createdAt = new Date().toISOString();
     meeting.updatedAt = new Date().toISOString();
     await meetingsStore.create(meeting);
+    // Sync with Google Calendar if configured
+    syncMeetingToGoogle(meeting).catch(err => console.error("Erro no sync:", err));
     res.status(201).json(meeting);
   });
 
   app.put("/api/meetings/:id", requireAuth, async (req, res) => {
     const updated = await meetingsStore.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Reunião não encontrada" });
+    // Sync with Google Calendar if configured
+    syncMeetingToGoogle(updated).catch(err => console.error("Erro no sync:", err));
     res.json(updated);
   });
 
   app.delete("/api/meetings/:id", requireAuth, async (req, res) => {
     const deleted = await meetingsStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Reunião não encontrada" });
+    // Remove from Google Calendar if it had an event ID
+    deleteMeetingFromGoogle(req.params.id).catch(err => console.error("Erro no sync:", err));
     res.json({ success: true });
   });
 
@@ -1056,6 +1062,74 @@ async function startServer() {
       '9': '#3f51b5', '10': '#0b8043', '11': '#d50000'
     };
     return colors[colorId] || '#3b82f6';
+  }
+
+  // Synchronize a single meeting with Google Calendar
+  async function syncMeetingToGoogle(meeting: any): Promise<void> {
+    if (!isGoogleConfigured()) return;
+    const client = getOAuthClient();
+    if (!client || !storedTokens?.access_token) return;
+    try {
+      const calendar = google.calendar({ version: 'v3', auth: client });
+      const dateTimeStart = `${meeting.date}T${meeting.startTime}:00`;
+      const dateTimeEnd = `${meeting.date}T${meeting.endTime}:00`;
+
+      const event: any = {
+        summary: meeting.title,
+        start: { dateTime: dateTimeStart },
+        end: { dateTime: dateTimeEnd },
+        description: meeting.agenda || '',
+      };
+      if (meeting.location) event.location = meeting.location;
+      if (meeting.meetUrl) event.hangoutLink = meeting.meetUrl;
+
+      if (meeting.eventId) {
+        // Update existing event
+        await (calendar.events.update as any)({
+          calendarId: 'primary',
+          eventId: meeting.eventId,
+          requestBody: event,
+        });
+        console.log(`✅ Reunião "${meeting.title}" atualizada no Google Calendar`);
+      } else {
+        // Create new event
+        const result = await (calendar.events.insert as any)({
+          calendarId: 'primary',
+          requestBody: event,
+          sendUpdates: 'all',
+        });
+        // Save the Google event ID back to the meeting in the store
+        const googleEventId = (result as any)?.data?.id;
+        if (googleEventId) {
+          const updatedMeeting = await meetingsStore.update(meeting.id, { eventId: googleEventId });
+          console.log(`✅ Reunião "${meeting.title}" criada no Google Calendar (ID: ${googleEventId})`);
+        }
+      }
+    } catch (error: any) {
+      console.error("Erro ao sincronizar com Google Calendar:", error.message);
+    }
+  }
+
+  // Delete meeting from Google Calendar
+  async function deleteMeetingFromGoogle(meetingId: string): Promise<void> {
+    if (!isGoogleConfigured()) return;
+    const client = getOAuthClient();
+    if (!client || !storedTokens?.access_token) return;
+    try {
+      // Find the meeting to get its eventId
+      const meetings = await meetingsStore.getAll();
+      const meeting = meetings.find((m: any) => m.id === meetingId);
+      if (!meeting || !meeting.eventId) return;
+
+      const calendar = google.calendar({ version: 'v3', auth: client });
+      await calendar.events.delete({
+        calendarId: 'primary',
+        eventId: meeting.eventId,
+      });
+      console.log(`🗑️ Reunião "${meeting.title}" removida do Google Calendar`);
+    } catch (error: any) {
+      console.error("Erro ao remover do Google Calendar:", error.message);
+    }
   }
 
   // Pomodoro state management moved to proper middleware
