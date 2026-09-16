@@ -1285,13 +1285,21 @@ async function startServer() {
       ]);
 
       const spaces = (response as any).data?.spaces || [];
-      const formattedSpaces = spaces.map((space: any) => ({
-        name: space.name,
-        displayName: space.displayName || space.spaceType,
-        spaceType: space.spaceType,
-        spaceId: space.name?.split('/').pop(),
-        dmDetails: space.dmDetails,
-      }));
+      const formattedSpaces = spaces.map((space: any) => {
+        // For DMs, try to get the contact name from dmDetails or use displayName
+        let displayName = space.displayName;
+        if (!displayName && space.spaceType === 'DM' && space.dmDetails) {
+          // Try to extract name from the DM structure
+          displayName = space.dmDetails?.contactName || 'Conversa Direta';
+        }
+        return {
+          name: space.name,
+          displayName: displayName || space.spaceType || 'Sem nome',
+          spaceType: space.spaceType,
+          spaceId: space.name?.split('/').pop(),
+          isDM: space.spaceType === 'DM',
+        };
+      });
 
       console.log(`✅ Encontrados ${formattedSpaces.length} espaços no Google Chat`);
       res.json({ spaces: formattedSpaces });
@@ -1339,10 +1347,12 @@ async function startServer() {
   });
 
   // Send direct message to a user via Google Chat API
+  // NOTE: Google Chat API does not allow creating new DMs programmatically for security reasons.
+  // Users must have an existing conversation or open Chat directly.
   app.post("/api/google/chat/send-dm", requireAuth, async (req, res) => {
-    const { targetUserEmail, text } = req.body;
-    if (!targetUserEmail || !text) {
-      return res.status(400).json({ error: "targetUserEmail e text são obrigatórios" });
+    const { targetUserEmail, text, spaceId } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: "text é obrigatório" });
     }
 
     try {
@@ -1354,37 +1364,25 @@ async function startServer() {
         return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
       }
 
-      const chat = google.chat({ version: 'v1', auth: client });
-
-      // Create DM space with this user using email
-      const dmSpace = await Promise.race([
-        (chat.spaces.create as any)({
-          requestBody: {
-            spaceType: 'DM',
-            dmDetails: {
-              userToMessage: targetUserEmail
-            }
-          }
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-      ]);
-
-      const spaceName = (dmSpace as any).data?.name;
-      if (!spaceName) {
-        return res.status(500).json({ error: "Não foi possível criar o espaço DM" });
+      // If spaceId provided (existing DM), send directly
+      if (spaceId) {
+        const chat = google.chat({ version: 'v1', auth: client });
+        const messageResponse = await Promise.race([
+          chat.spaces.messages.create({
+            parent: `spaces/${spaceId}`,
+            requestBody: { text }
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+        console.log(`✅ Mensagem enviada para DM ${spaceId}`);
+        return res.json({ success: true, messageId: (messageResponse as any).data?.name });
       }
 
-      // Send the message
-      const messageResponse = await Promise.race([
-        chat.spaces.messages.create({
-          parent: spaceName,
-          requestBody: { text }
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-      ]);
-
-      console.log(`✅ DM enviado para ${targetUserEmail}`);
-      res.json({ success: true, messageId: (messageResponse as any).data?.name });
+      // No existing space - cannot create new DMs via API (Google limitation)
+      return res.status(400).json({
+        error: "É necessário ter uma conversa existente com este contato. Abra o Google Chat e inicie uma conversa com este contato, depois tente novamente.",
+        userEmail: targetUserEmail
+      });
     } catch (error: any) {
       console.error("Erro ao enviar DM:", error.message);
       res.status(500).json({ error: error.message || "Erro ao enviar mensagem" });
