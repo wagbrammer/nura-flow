@@ -255,6 +255,7 @@ export const SettingsView: React.FC = () => {
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [showRestartAlert, setShowRestartAlert] = useState(false);
   const [googleSyncLoading, setGoogleSyncLoading] = useState(false);
+  const [googleSyncMessage, setGoogleSyncMessage] = useState<string | null>(null);
   const [geminiStatus, setGeminiStatus] = useState<{ configured: boolean; model: string; hasKey: boolean } | null>(null);
   const [isLoadingGemini, setIsLoadingGemini] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -327,6 +328,13 @@ export const SettingsView: React.FC = () => {
         }
       })
       .catch(err => console.error('Erro ao carregar localização do weather do servidor:', err));
+
+    // Verificar se veio do callback do Google (parâmetro google=connected)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('google') === 'connected') {
+      // Recarregar a página para garantir que o estado seja atualizado corretamente
+      window.location.reload();
+    }
   }, []);
 
 
@@ -549,11 +557,15 @@ export const SettingsView: React.FC = () => {
   const fetchGoogleStatus = async () => {
     setIsLoadingStatus(true);
     try {
-      const response = await fetch('/api/auth/google/status');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch('/api/auth/google/status', { signal: controller.signal });
+      clearTimeout(timeoutId);
       const data = await response.json();
       setGoogleStatus(data);
     } catch (error) {
       console.error("Erro ao buscar status do Google:", error);
+      setGoogleStatus({ configured: true, connected: false, message: "Erro ao conectar" });
     } finally {
       setIsLoadingStatus(false);
     }
