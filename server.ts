@@ -812,7 +812,9 @@ async function startServer() {
     if (!client) return res.status(503).json({ error: "Cliente OAuth não inicializado" });
 
     const scopes = [
-      'https://www.googleapis.com/auth/calendar',        // Leitura e escrita no calendário
+      'https://www.googleapis.com/auth/calendar',              // Leitura e escrita no calendário
+      'https://www.googleapis.com/auth/contacts.readonly',     // Ler contatos do Google
+      'https://www.googleapis.com/auth/contacts',              // Ler e escrever contatos
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/drive.readonly'
     ];
@@ -1152,6 +1154,49 @@ async function startServer() {
     } catch (error: any) {
       console.error("Erro ao buscar eventos do Google Calendar:", error);
       res.status(500).json({ error: error.message || "Erro ao buscar eventos" });
+    }
+  });
+
+  // Google Contacts Endpoint
+  app.get("/api/google/contacts", async (req, res) => {
+    try {
+      if (!isGoogleConfigured()) {
+        return res.status(503).json({ error: "Google OAuth não configurado" });
+      }
+      const client = getOAuthClient();
+      if (!client || !storedTokens?.access_token) {
+        return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
+      }
+
+      const people = google.people({ version: 'v1', auth: client });
+      const response = await people.people.connections.list({
+        resourceName: 'people/me',
+        pageSize: 200,
+        personFields: 'names,emailAddresses,phoneNumbers,photos',
+      });
+
+      const connections = response.data.connections || [];
+      const formattedContacts = connections.map(person => {
+        const name = person.names?.[0]?.displayName || '(Sem nome)';
+        const email = person.emailAddresses?.[0]?.value || '';
+        const phone = person.phoneNumbers?.[0]?.value || '';
+        const photo = person.photos?.[0]?.url || '';
+        return {
+          resourceName: person.resourceName,
+          etag: person.etag,
+          name,
+          email,
+          phone,
+          photo,
+          givenName: person.names?.[0]?.givenName || '',
+          familyName: person.names?.[0]?.familyName || '',
+        };
+      });
+
+      res.json({ contacts: formattedContacts });
+    } catch (error: any) {
+      console.error("Erro ao buscar contatos do Google:", error);
+      res.status(500).json({ error: error.message || "Erro ao buscar contatos" });
     }
   });
 

@@ -21,14 +21,16 @@ import {
   Trash2,
   ExternalLink,
   Edit3,
-  Volume2
+  Volume2,
+  X
 } from 'lucide-react';
 import { TagBadge } from '../components/common/TagBadge';
 import { MEETING_TEMPLATES } from '../lib/constants';
 import { MeetingMiniAtaModal } from '../components/common/MeetingMiniAtaModal';
 import { formatDateBR } from '../lib/date';
 import { getAllAudioRecordings, getAudioRecording } from '../lib/audioStorage';
-import { AudioNoteData, Meeting } from '../types';
+import { AudioNoteData, Meeting, Participant } from '../types';
+import { GoogleContactsPicker } from '../components/common/GoogleContactsPicker';
 
 export const MeetingsView: React.FC = () => {
   const {
@@ -77,6 +79,8 @@ export const MeetingsView: React.FC = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [newSelectedTags, setNewSelectedTags] = useState<string[]>([]);
   const [newProjectId, setNewProjectId] = useState<string>('');
+  const [newParticipants, setNewParticipants] = useState<Participant[]>([]);
+  const [isContactsPickerOpen, setIsContactsPickerOpen] = useState(false);
 
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -172,9 +176,9 @@ export const MeetingsView: React.FC = () => {
       agenda: newAgenda.trim(),
       tags: newSelectedTags,
       projectId: newProjectId || undefined,
-      participants: [
-        { name: 'Wagner Brammer', email: 'wagner.brammer@gmail.com', role: 'Organizador', status: 'accepted' }
-      ]
+      participants: newParticipants.length > 0
+        ? newParticipants
+        : [{ name: 'Wagner Brammer', email: 'wagner.brammer@gmail.com', role: 'Organizador', status: 'accepted' }]
     });
 
     setIsCreateModalOpen(false);
@@ -1115,6 +1119,50 @@ export const MeetingsView: React.FC = () => {
                 >
                   Cancelar
                 </button>
+                {/* Participants section */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Participantes ({newParticipants.length})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsContactsPickerOpen(true)}
+                      className="text-[11px] text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Buscar no Google</span>
+                    </button>
+                  </div>
+
+                  {newParticipants.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {newParticipants.map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                              {p.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{p.name}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{p.email}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setNewParticipants(prev => prev.filter((_, i) => i !== idx))}
+                            className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">Nenhum participante selecionado</p>
+                  )}
+                </div>
+
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors"
@@ -1126,6 +1174,17 @@ export const MeetingsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Google Contacts Picker */}
+      <GoogleContactsPicker
+        open={isContactsPickerOpen}
+        onClose={() => setIsContactsPickerOpen(false)}
+        onAddParticipants={(participants) => {
+          setNewParticipants(prev => [...prev, ...participants]);
+          setIsContactsPickerOpen(false);
+        }}
+        existingParticipants={newParticipants}
+      />
       {/* Meeting Mini Ata & Attachments Modal */}
       {activeSelectedMeeting && (
         <MeetingMiniAtaModal
