@@ -58,11 +58,11 @@ export const ChatView: React.FC = () => {
   const [googleSpaces, setGoogleSpaces] = useState<GoogleSpace[]>([]);
   const [sendMessageError, setSendMessageError] = useState<string | null>(null);
 
-  // DM search state
+  // DM state
   const [showDMPanel, setShowDMPanel] = useState(false);
-  const [dmEmail, setDmEmail] = useState('');
-  const [dmSearchResult, setDmSearchResult] = useState<GoogleUser | null>(null);
-  const [dmLoading, setDmLoading] = useState(false);
+  const [dmContacts, setDmContacts] = useState<GoogleUser[]>([]);
+  const [dmSelectedContact, setDmSelectedContact] = useState<GoogleUser | null>(null);
+  const [dmLoadingContacts, setDmLoadingContacts] = useState(false);
   const [dmMessageText, setDmMessageText] = useState('');
   const [sendingDM, setSendingDM] = useState(false);
 
@@ -126,32 +126,22 @@ export const ChatView: React.FC = () => {
     scrollToBottom();
   }, [spaceMessages, selectedSpaceId]);
 
-  // Search for user to send DM
-  const handleSearchUser = async () => {
-    if (!dmEmail.trim()) return;
-    setDmLoading(true);
-    setDmSearchResult(null);
+  // Load contacts when opening DM panel
+  const handleOpenDMPanel = async () => {
+    setShowDMPanel(true);
+    if (dmContacts.length > 0) return;
 
+    setDmLoadingContacts(true);
     try {
-      const res = await fetch(`/api/google/chat/search-user?email=${encodeURIComponent(dmEmail)}`, {
+      const res = await fetch('/api/google/chat/contacts', {
         credentials: 'same-origin'
       });
       const data = await res.json();
-
-      if (data.success) {
-        setDmSearchResult({
-          resourceName: data.resourceName,
-          name: data.name,
-          email: data.email
-        });
-      } else {
-        alert(data.error || 'Usuário não encontrado');
-      }
+      setDmContacts(data.contacts || []);
     } catch (err) {
-      console.error('Erro ao buscar usuário:', err);
-      alert('Erro ao buscar usuário');
+      console.error('Erro ao buscar contatos:', err);
     } finally {
-      setDmLoading(false);
+      setDmLoadingContacts(false);
     }
   };
 
@@ -241,7 +231,7 @@ export const ChatView: React.FC = () => {
 
   // Send DM via API
   const handleSendDM = async () => {
-    if (!dmMessageText.trim() || !dmSearchResult) return;
+    if (!dmMessageText.trim() || !dmSelectedContact) return;
 
     setSendingDM(true);
     try {
@@ -250,7 +240,7 @@ export const ChatView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
-          targetUserEmail: dmSearchResult.email,
+          targetUserResourceName: dmSelectedContact.resourceName,
           text: `${user.name}: ${dmMessageText.trim()}`
         })
       });
@@ -261,10 +251,9 @@ export const ChatView: React.FC = () => {
         throw new Error(data.error || 'Erro ao enviar DM');
       }
 
-      alert(`✅ Mensagem enviada para ${dmSearchResult.name}!`);
+      alert(`✅ Mensagem enviada para ${dmSelectedContact.name}!`);
       setDmMessageText('');
-      setDmSearchResult(null);
-      setDmEmail('');
+      setDmSelectedContact(null);
     } catch (err: any) {
       console.error('Erro ao enviar DM:', err);
       alert(`Erro ao enviar mensagem: ${err.message}`);
@@ -335,7 +324,7 @@ export const ChatView: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setShowDMPanel(!showDMPanel)}
+            onClick={handleOpenDMPanel}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors"
             title="Enviar mensagem direta (DM)"
           >
@@ -372,37 +361,43 @@ export const ChatView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Search user */}
+            {/* Contact selection */}
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Email do destinatário
+                Selecione um contato
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  value={dmEmail}
-                  onChange={e => setDmEmail(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSearchUser()}
-                  placeholder="nome@empresa.com"
-                  className="flex-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <button
-                  onClick={handleSearchUser}
-                  disabled={dmLoading || !dmEmail.trim()}
-                  className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold disabled:opacity-50"
-                >
-                  {dmLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                </button>
-              </div>
-              {dmSearchResult && (
-                <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800">
-                  <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold">
-                    {dmSearchResult.name.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{dmSearchResult.name}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{dmSearchResult.email}</p>
-                  </div>
+              {dmLoadingContacts ? (
+                <div className="flex items-center gap-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  <span className="text-xs text-slate-500">Carregando contatos...</span>
+                </div>
+              ) : dmContacts.length === 0 ? (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Nenhum contato encontrado. O Google só permite enviar DM para contatos que você já tem salvos.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {dmContacts.map((contact) => (
+                    <button
+                      key={contact.resourceName}
+                      onClick={() => setDmSelectedContact(contact)}
+                      className={`w-full flex items-center gap-2 p-2 rounded-xl border transition-all text-left ${
+                        dmSelectedContact?.resourceName === contact.resourceName
+                          ? 'bg-purple-100 dark:bg-purple-950 border-purple-400 dark:border-purple-700'
+                          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                        {contact.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{contact.name}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{contact.email}</p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -425,7 +420,7 @@ export const ChatView: React.FC = () => {
           <div className="flex justify-end">
             <button
               onClick={handleSendDM}
-              disabled={!dmSearchResult || !dmMessageText.trim() || sendingDM}
+              disabled={!dmSelectedContact || !dmMessageText.trim() || sendingDM}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sendingDM ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

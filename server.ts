@@ -1300,11 +1300,8 @@ async function startServer() {
     }
   });
 
-  // Search for a user by email to get their resource name (for DMs)
-  app.get("/api/google/chat/search-user", requireAuth, async (req, res) => {
-    const { email } = req.query;
-    if (!email) return res.status(400).json({ error: "Email é obrigatório" });
-
+  // List all contacts that can be messaged via DM
+  app.get("/api/google/chat/contacts", requireAuth, async (req, res) => {
     try {
       if (!isGoogleConfigured()) {
         return res.status(503).json({ error: "Google OAuth não configurado" });
@@ -1316,40 +1313,37 @@ async function startServer() {
 
       const people = google.people({ version: 'v1', auth: client });
       const response = await Promise.race([
-        (people.people.searchContacts as any)({
-          query: email as string,
-          pageSize: 5,
+        people.people.connections.list({
+          resourceName: 'people/me',
+          pageSize: 200,
           personFields: 'names,emailAddresses,resourceName',
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
       ]);
 
-      const contacts = (response as any).data?.contacts || [];
-      const contact = contacts.find((c: any) =>
-        c.emailAddresses?.some((e: any) => e.value.toLowerCase() === (email as string).toLowerCase())
-      );
+      const contacts = (response as any).data?.connections || [];
+      const formattedContacts = contacts
+        .map((person: any) => ({
+          resourceName: person.resourceName,
+          name: person.names?.[0]?.displayName || '(Sem nome)',
+          email: person.emailAddresses?.[0]?.value || '',
+          photo: person.photos?.[0]?.value || ''
+        }))
+        .filter(c => c.email); // Only include contacts with email
 
-      if (contact) {
-        res.json({
-          success: true,
-          resourceName: contact.resourceName,
-          name: contact.names?.[0]?.displayName,
-          email: contact.emailAddresses?.[0]?.value
-        });
-      } else {
-        res.json({ success: false, error: "Usuário não encontrado" });
-      }
+      console.log(`✅ Encontrados ${formattedContacts.length} contatos para DM`);
+      res.json({ contacts: formattedContacts });
     } catch (error: any) {
-      console.error("Erro ao buscar usuário:", error.message);
-      res.status(500).json({ error: error.message || "Erro ao buscar usuário" });
+      console.error("Erro ao buscar contatos para DM:", error.message);
+      res.status(500).json({ error: error.message || "Erro ao buscar contatos" });
     }
   });
 
   // Send direct message to a user via Google Chat API
   app.post("/api/google/chat/send-dm", requireAuth, async (req, res) => {
-    const { targetUserEmail, text } = req.body;
-    if (!targetUserEmail || !text) {
-      return res.status(400).json({ error: "targetUserEmail e text são obrigatórios" });
+    const { targetUserResourceName, text } = req.body;
+    if (!targetUserResourceName || !text) {
+      return res.status(400).json({ error: "targetUserResourceName e text são obrigatórios" });
     }
 
     try {
@@ -1361,53 +1355,37 @@ async function startServer() {
         return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
       }
 
-      // First, find the user's resource name
-      const people = google.people({ version: 'v1', auth: client });
-      const searchResponse = await Promise.race([
-        (people.people.searchContacts as any)({
-          query: targetUserEmail,
-          pageSize: 5,
-          personFields: 'names,emailAddresses,resourceName',
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-      ]);
-
-      const contacts = (searchResponse as any).data?.contacts || [];
-      const contact = contacts.find((c: any) =>
-        c.emailAddresses?.some((e: any) => e.value.toLowerCase() === targetUserEmail.toLowerCase())
-      );
-
-      if (!contact) {
-        return res.status(404).json({ error: "Usuário não encontrado no Google" });
-      }
-
       const chat = google.chat({ version: 'v1', auth: client });
 
-      // Create or get a DM space with this user
+      // Create DM space with this user
       const dmSpace = await Promise.race([
         (chat.spaces.create as any)({
           requestBody: {
             spaceType: 'DM',
-            title: `DM com ${contact.names?.[0]?.displayName || targetUserEmail}`,
             dmDetails: {
-              userToMessage: contact.resourceName
+              userToMessage: targetUserResourceName
             }
           }
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
       ]);
 
+      const spaceName = (dmSpace as any).data?.name;
+      if (!spaceName) {
+        return res.status(500).json({ error: "Não foi possível criar o espaço DM" });
+      }
+
       // Send the message
       const messageResponse = await Promise.race([
-        (chat.spaces.messages.create as any)({
-          parent: (dmSpace as any).data?.name,
+        chat.spaces.messages.create({
+          parent: spaceName,
           requestBody: { text }
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
       ]);
 
-      console.log(`✅ DM enviado para ${targetUserEmail}`);
-      res.json({ success: true, messageId: messageResponse.data.name });
+      console.log(`✅ DM enviado para ${targetUserResourceName}`);
+      res.json({ success: true, messageId: (messageResponse as any).data?.name });
     } catch (error: any) {
       console.error("Erro ao enviar DM:", error.message);
       res.status(500).json({ error: error.message || "Erro ao enviar mensagem" });
