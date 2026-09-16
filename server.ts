@@ -482,10 +482,31 @@ async function startServer() {
   });
 
   app.delete("/api/meetings/:id", requireAuth, async (req, res) => {
+    // First, find the meeting to get its eventId BEFORE deleting
+    const meeting = await meetingsStore.getById(req.params.id);
     const deleted = await meetingsStore.delete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Reunião não encontrada" });
     // Remove from Google Calendar if it had an event ID
-    deleteMeetingFromGoogle(req.params.id).catch(err => console.error("Erro no sync:", err));
+    if (meeting?.eventId) {
+      console.log(`🗑️ Deletando reunião "${meeting.title}" do Google Calendar (ID: ${meeting.eventId})`);
+      try {
+        const client = getOAuthClient();
+        if (client && storedTokens?.access_token) {
+          const calendar = google.calendar({ version: 'v3', auth: client });
+          await calendar.events.delete({
+            calendarId: 'primary',
+            eventId: meeting.eventId,
+          });
+          console.log(`✅ Reunião "${meeting.title}" removida do Google Calendar`);
+        } else {
+          console.log(`⚠️ Google não conectado - não foi possível remover do Google Calendar`);
+        }
+      } catch (error: any) {
+        console.error(`❌ Erro ao remover do Google Calendar:`, error.message);
+      }
+    } else {
+      console.log(`ℹ️ Reunião "${meeting?.title}" não tinha eventId - nada para remover`);
+    }
     res.json({ success: true });
   });
 
@@ -1200,28 +1221,6 @@ async function startServer() {
         console.error('Detalhes do erro:', JSON.stringify(error.response.data));
       }
       throw error; // Re-throw so caller knows it failed
-    }
-  }
-
-  // Delete meeting from Google Calendar
-  async function deleteMeetingFromGoogle(meetingId: string): Promise<void> {
-    if (!isGoogleConfigured()) return;
-    const client = getOAuthClient();
-    if (!client || !storedTokens?.access_token) return;
-    try {
-      // Find the meeting to get its eventId
-      const meetings = await meetingsStore.getAll();
-      const meeting = meetings.find((m: any) => m.id === meetingId);
-      if (!meeting || !meeting.eventId) return;
-
-      const calendar = google.calendar({ version: 'v3', auth: client });
-      await calendar.events.delete({
-        calendarId: 'primary',
-        eventId: meeting.eventId,
-      });
-      console.log(`🗑️ Reunião "${meeting.title}" removida do Google Calendar`);
-    } catch (error: any) {
-      console.error("Erro ao remover do Google Calendar:", error.message);
     }
   }
 
