@@ -101,6 +101,9 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
     setNotice('Caminho copiado. Cole no Explorador de Arquivos.');
   };
 
+  const [showExtraLinks, setShowExtraLinks] = useState(false);
+  const extraLinks = favorites.slice(4);
+
   if (variant === 'desktop') {
     const visibleFavorites = favorites.slice(0, 4);
     return (
@@ -128,12 +131,69 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
           </button>
         )}
 
-        {favorites.length > visibleFavorites.length && (
-          <button type="button" onClick={openManager} className="grid h-9 min-w-9 place-items-center rounded-xl bg-slate-100 px-2 text-[10px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300" title="Ver todos os atalhos">
-            +{favorites.length - visibleFavorites.length}
-          </button>
+        {extraLinks.length > 0 && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowExtraLinks(!showExtraLinks)}
+              className="grid h-9 min-w-9 place-items-center rounded-xl bg-slate-100 px-2 text-[10px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              title={`Ver mais ${extraLinks.length} atalhos`}
+            >
+              +{extraLinks.length}
+            </button>
+
+            {showExtraLinks && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowExtraLinks(false)}
+                />
+                <div className="absolute left-0 top-full mt-2 z-50 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-2">
+                  <div className="max-h-80 overflow-y-auto">
+                    {extraLinks.map(link => {
+                      const Icon = ICONS[link.icon] || Link2;
+                      return (
+                        <button
+                          key={link.id}
+                          type="button"
+                          onClick={() => {
+                            activateLink(link);
+                            setShowExtraLinks(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${COLORS[link.color].replace('hover:', '')} hover:opacity-80`}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="text-xs font-semibold truncate">{link.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-slate-200 dark:border-slate-700 mt-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExtraLinks(false);
+                        openManager();
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                      Gerenciar todos os atalhos
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         )}
-        <button type="button" onClick={openManager} className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200" title="Gerenciar Links Úteis" aria-label="Gerenciar Links Úteis">
+
+        <button
+          type="button"
+          onClick={openManager}
+          className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          title="Gerenciar Links Úteis"
+          aria-label="Gerenciar Links Úteis"
+        >
           <Settings className="h-4 w-4" />
         </button>
       </div>

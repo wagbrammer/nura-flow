@@ -95,12 +95,6 @@ export const Header: React.FC = () => {
           </button>
         )}
 
-        {/* Sync Status Pill */}
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-slate-600 dark:text-slate-400">
-          <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Agenda local ativa</span>
-        </div>
-
         <QuickLinksBar variant="mobile" />
 
         <div className="hidden md:block">
