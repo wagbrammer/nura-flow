@@ -1088,14 +1088,17 @@ export const SettingsView: React.FC = () => {
           ) : (
             <div className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 flex items-center gap-1 border border-amber-200 dark:border-amber-800/50">
               <AlertCircle className="w-3 h-3" /> Requer config no .env
-              <button
-                onClick={() => setShowGoogleConfigEditor(true)}
-                className="ml-2 px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors"
-              >
-                Editar
-              </button>
             </div>
           )}
+
+          {/* Botão para editar configuração sempre visível */}
+          <button
+            onClick={() => setShowGoogleConfigEditor(!showGoogleConfigEditor)}
+            className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
+          >
+            <Settings className="w-3 h-3" />
+            {showGoogleConfigEditor ? 'Fechar edição' : 'Editar configuração'}
+          </button>
         </div>
 
         {/* Google Config Editor */}
