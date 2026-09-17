@@ -1284,22 +1284,35 @@ async function startServer() {
       ]);
 
       const spaces = (response as any).data?.spaces || [];
+
+      // Log first space to debug
+      if (spaces.length > 0) {
+        console.log('🔍 Primeiro espaço:', JSON.stringify(spaces[0], null, 2));
+      }
+
       const formattedSpaces = spaces.map((space: any) => {
         // For DMs, try multiple sources for the display name
         let displayName = space.displayName;
-        if (!displayName && space.spaceType === 'DM') {
-          // Try to get contact info from dmDetails
-          if (space.dmDetails?.contactInfo?.contactName) {
-            displayName = space.dmDetails.contactInfo.contactName;
-          } else if (space.dmDetails?.contactName) {
-            displayName = space.dmDetails.contactName;
+
+        // Try to extract name from various fields
+        if (!displayName || displayName === 'DM' || displayName === 'DIRECT_MESSAGE') {
+          // Check dmDetails for contact info
+          if (space.dmDetails?.userDisplayName) {
+            displayName = space.dmDetails.userDisplayName;
+          } else if (space.dmDetails?.userToMessageDisplayName) {
+            displayName = space.dmDetails.userToMessageDisplayName;
           } else if (space.title) {
             displayName = space.title;
+          } else if (space.name) {
+            // Extract from resource name (e.g., "spaces/XXX" -> use last part)
+            const parts = space.name.split('/');
+            displayName = parts[parts.length - 1];
           }
         }
+
         return {
           name: space.name,
-          displayName: displayName || space.spaceType || 'Conversa Direta',
+          displayName: displayName || 'Conversa Direta',
           spaceType: space.spaceType,
           spaceId: space.name?.split('/').pop(),
           isDM: space.spaceType === 'DM',

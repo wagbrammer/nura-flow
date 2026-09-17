@@ -1,17 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   MessageSquare,
   Search,
   Send,
-  Plus,
   ExternalLink,
   Loader2,
   CheckCircle2,
-  AlertTriangle,
-  X
+  AlertTriangle
 } from 'lucide-react';
-import { formatRelativeTimeBR } from '../lib/date';
 import { ChatMessage } from '../types';
 
 interface GoogleSpace {
@@ -33,30 +30,6 @@ export const ChatView: React.FC = () => {
   const [loadingSpaces, setLoadingSpaces] = useState(false);
   const [googleSpaces, setGoogleSpaces] = useState<GoogleSpace[]>([]);
   const [sendMessageError, setSendMessageError] = useState<string | null>(null);
-
-  // DM state
-  const [showDMInput, setShowDMInput] = useState(false);
-  const [dmContacts, setDmContacts] = useState<{ name: string; email: string }[]>([]);
-  const [dmSelectedContact, setDmSelectedContact] = useState<{ name: string; email: string } | null>(null);
-  const [dmText, setDmText] = useState('');
-  const [sendingDM, setSendingDM] = useState(false);
-  const [dmError, setDmError] = useState<string | null>(null);
-  const [dmLoadingContacts, setDmLoadingContacts] = useState(false);
-  const [dmSearchQuery, setDmSearchQuery] = useState('');
-
-  // Local chat messages (for history display)
-  const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('robustec_chat_messages');
-      if (saved) return JSON.parse(saved);
-    }
-    return {};
-  });
-
-  // Sync with localStorage
-  useEffect(() => {
-    localStorage.setItem('robustec_chat_messages', JSON.stringify(chatMessages));
-  }, [chatMessages]);
 
   // Fetch spaces and check connection on mount
   useEffect(() => {
@@ -80,7 +53,7 @@ export const ChatView: React.FC = () => {
           return res.json();
         })
         .then(data => {
-          console.log('📦 Dados recebidos:', data);
+          console.log('📦 Dados recebidos:', JSON.stringify(data, null, 2));
           const spaces: GoogleSpace[] = data.spaces || [];
           setGoogleSpaces(spaces);
           if (spaces.length === 0) {
@@ -101,10 +74,6 @@ export const ChatView: React.FC = () => {
   );
 
   const selectedSpace = googleSpaces.find(s => s.spaceId === selectedSpaceId);
-  // Note: Google Chat API does not allow reading message history via REST API
-  // Only listing spaces and sending messages is supported
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,76 +102,26 @@ export const ChatView: React.FC = () => {
         }
 
         console.log('✅ Mensagem enviada via API:', data.messageId);
+        setMessageText('');
       } catch (err: any) {
         console.warn('API falhou:', err.message);
         setSendMessageError(err.message);
       }
+    } else {
+      // No Google connection - just clear input
+      setMessageText('');
     }
 
-    setMessageText('');
     setIsSending(false);
-  };
-
-  const handleOpenDMPanel = async () => {
-    setShowDMInput(true);
-    if (dmContacts.length > 0) return;
-
-    setDmLoadingContacts(true);
-    try {
-      const res = await fetch('/api/google/chat/contacts', {
-        credentials: 'same-origin'
-      });
-      const data = await res.json();
-      setDmContacts(data.contacts || []);
-    } catch (err) {
-      console.error('Erro ao buscar contatos:', err);
-    } finally {
-      setDmLoadingContacts(false);
-    }
-  };
-
-  const handleSendDM = async () => {
-    if (!dmText.trim() || !dmSelectedContact) return;
-
-    setSendingDM(true);
-    setDmError(null);
-
-    try {
-      const res = await fetch('/api/google/chat/send-dm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          targetUserEmail: dmSelectedContact.email,
-          text: dmText
-        })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        // Check if response includes chatUrl for direct link
-        if (data.chatUrl) {
-          window.open(data.chatUrl, '_blank');
-        }
-        throw new Error(data.error || 'Erro ao enviar DM');
-      }
-
-      alert(`✅ Mensagem enviada para ${dmSelectedContact.name}!`);
-      setDmText('');
-      setDmSelectedContact(null);
-      setShowDMInput(false);
-    } catch (err: any) {
-      console.error('Erro ao enviar DM:', err);
-      setDmError(err.message);
-    } finally {
-      setSendingDM(false);
-    }
   };
 
   const handleOpenInChat = (space: GoogleSpace) => {
     const url = `https://chat.google.com/u/0/${space.name}`;
     window.open(url, '_blank');
+  };
+
+  const handleOpenChat = () => {
+    window.open('https://chat.google.com', '_blank');
   };
 
   return (
@@ -239,127 +158,15 @@ export const ChatView: React.FC = () => {
 
           <button
             type="button"
-            onClick={handleOpenDMPanel}
+            onClick={handleOpenChat}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors"
-            title="Enviar mensagem direta"
+            title="Abrir Google Chat"
           >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Enviar DM</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Abrir Chat</span>
           </button>
         </div>
       </div>
-
-      {/* DM Input Panel */}
-      {showDMInput && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xs p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-purple-600" />
-              Enviar Mensagem Direta (DM)
-            </h3>
-            <button
-              onClick={() => setShowDMInput(false)}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-            >
-              <X className="w-4 h-4 text-slate-500" />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Selecione um contato
-                </label>
-                <span className="text-[10px] text-slate-400">{dmContacts.length} contatos</span>
-              </div>
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                <Search className="w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={dmSearchQuery}
-                  onChange={e => setDmSearchQuery(e.target.value)}
-                  placeholder="Buscar contato..."
-                  className="flex-1 bg-transparent text-xs focus:outline-none placeholder-slate-400"
-                />
-              </div>
-              {dmLoadingContacts ? (
-                <div className="flex items-center gap-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                  <span className="text-xs text-slate-500">Carregando contatos...</span>
-                </div>
-              ) : dmContacts.length === 0 ? (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Nenhum contato encontrado. O Google só permite enviar DM para contatos que você já tem salvos.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {dmContacts.filter(c =>
-                    c.name.toLowerCase().includes(dmSearchQuery.toLowerCase()) ||
-                    c.email.toLowerCase().includes(dmSearchQuery.toLowerCase())
-                  ).map((contact, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setDmSelectedContact(contact)}
-                      className={`w-full flex items-center gap-2 p-2 rounded-xl border transition-all text-left ${
-                        dmSelectedContact?.email === contact.email
-                          ? 'bg-purple-100 dark:bg-purple-950 border-purple-400 dark:border-purple-700'
-                          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-purple-300'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                        {contact.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{contact.name}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{contact.email}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Mensagem
-              </label>
-              <textarea
-                value={dmText}
-                onChange={e => setDmText(e.target.value)}
-                placeholder="Digite sua mensagem..."
-                rows={3}
-                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-              />
-            </div>
-
-            {dmError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl">
-                <p className="text-xs text-red-700 dark:text-red-400">{dmError}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setShowDMInput(false)}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSendDM}
-              disabled={!dmSelectedContact || !dmText.trim() || sendingDM}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {sendingDM ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Enviar DM
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Main Grid: Spaces List + Conversation */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
@@ -400,8 +207,6 @@ export const ChatView: React.FC = () => {
               </div>
             ) : (
               filteredSpaces.map(space => {
-                const messages = chatMessages[space.spaceId] || [];
-                const lastMsg = messages[messages.length - 1];
                 const isSelected = selectedSpaceId === space.spaceId;
                 const isDM = space.isDM;
 
@@ -428,7 +233,7 @@ export const ChatView: React.FC = () => {
                           {space.displayName}
                         </p>
                         <p className="text-[10px] text-slate-400 truncate">
-                          {lastMsg ? lastMsg.text?.slice(0, 40) + '...' : 'Sem mensagens ainda'}
+                          {isDM ? 'Conversa direta' : 'Sala'}
                         </p>
                       </div>
                       <button
@@ -442,13 +247,6 @@ export const ChatView: React.FC = () => {
                         <ExternalLink className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    {lastMsg && (
-                      <div className="mt-1 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {formatRelativeTimeBR(lastMsg.createTime)}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 );
               })
@@ -475,7 +273,7 @@ export const ChatView: React.FC = () => {
                       {selectedSpace.displayName}
                     </h3>
                     <p className="text-[10px] text-slate-400">
-                      {spaceMessages.length} mensagem(s) • {selectedSpace.isDM ? 'Conversa direta' : 'Sala'}
+                      {selectedSpace.isDM ? 'Conversa direta' : 'Sala'}
                     </p>
                   </div>
                 </div>
@@ -491,13 +289,13 @@ export const ChatView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Messages Area */}
+              {/* Info Area */}
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
-                  <p className="text-sm font-medium">Histórico de mensagens</p>
-                  <p className="text-xs mt-1">A API do Google Chat não permite ler mensagens antigas via REST API</p>
-                  <p className="text-xs mt-2 text-emerald-600">Você pode enviar novas mensagens para esta sala</p>
+                  <p className="text-sm font-medium">Envie uma mensagem</p>
+                  <p className="text-xs mt-1">A API do Google Chat permite enviar mensagens, mas não ler histórico</p>
+                  <p className="text-xs mt-2 text-emerald-600">Use o Google Chat para ver conversas anteriores</p>
                 </div>
               </div>
 
@@ -549,7 +347,7 @@ export const ChatView: React.FC = () => {
                 <p className="text-sm font-medium">Selecione uma sala ou conversa</p>
                 <p className="text-xs mt-1">
                   {googleConnected
-                    ? 'Carregando suas salas...'
+                    ? 'Escolha uma sala para enviar mensagem'
                     : 'Reconecte ao Google nas configurações'}
                 </p>
               </div>
