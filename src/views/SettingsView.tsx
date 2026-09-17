@@ -254,6 +254,7 @@ export const SettingsView: React.FC = () => {
   const [clientSecret, setClientSecret] = useState('');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [showRestartAlert, setShowRestartAlert] = useState(false);
+  const [showGoogleConfigEditor, setShowGoogleConfigEditor] = useState(false);
   const [googleSyncLoading, setGoogleSyncLoading] = useState(false);
   const [googleSyncMessage, setGoogleSyncMessage] = useState<string | null>(null);
   const [geminiStatus, setGeminiStatus] = useState<{ configured: boolean; model: string; hasKey: boolean } | null>(null);
@@ -1087,9 +1088,73 @@ export const SettingsView: React.FC = () => {
           ) : (
             <div className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 flex items-center gap-1 border border-amber-200 dark:border-amber-800/50">
               <AlertCircle className="w-3 h-3" /> Requer config no .env
+              <button
+                onClick={() => setShowGoogleConfigEditor(true)}
+                className="ml-2 px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors"
+              >
+                Editar
+              </button>
             </div>
           )}
         </div>
+
+        {/* Google Config Editor */}
+        {showGoogleConfigEditor && (
+          <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 space-y-3">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+              <strong>Editar Configuração Google:</strong> Cole o <strong>Client ID</strong> e <strong>Client Secret</strong> do seu projeto Google Cloud.
+            </p>
+
+            <form onSubmit={handleSaveGoogleConfig} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Client ID
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  placeholder="xxxxxxxxxx.apps.googleusercontent.com"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Client Secret
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={clientSecret}
+                  onChange={(e) => setClientSecret(e.target.value)}
+                  placeholder="GOCSPX-xxxxxxxxxxxxx"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSavingConfig}
+                className="w-full px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSavingConfig ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar Configuração'
+                )}
+              </button>
+            </form>
+
+            <p className="text-[10px] text-amber-600 dark:text-amber-500">
+              Dica: No Google Cloud Console → APIs e Serviços → Credenciais → ID do cliente OAuth 2.0
+            </p>
+          </div>
+        )}
 
         {!isLoadingStatus && !googleStatus?.configured && (
           <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 space-y-3">
