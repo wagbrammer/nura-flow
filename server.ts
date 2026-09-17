@@ -815,8 +815,8 @@ async function startServer() {
       'https://www.googleapis.com/auth/calendar',              // Leitura e escrita no calendário
       'https://www.googleapis.com/auth/contacts.readonly',     // Ler contatos do Google
       'https://www.googleapis.com/auth/contacts',              // Ler e escrever contatos
-      'https://www.googleapis.com/auth/chat.messages',         // Ler e escrever mensagens (melhor scope)
-      'https://www.googleapis.com/auth/chat.spaces.readonly',  // Listar espaços/salas
+      'https://www.googleapis.com/auth/chat.messages',         // Ler e escrever mensagens do Google Chat
+      'https://www.googleapis.com/auth/chat.spaces.readonly',  // Listar espaços/salas do Google Chat
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/drive.readonly'
     ];
@@ -1204,9 +1204,19 @@ async function startServer() {
           // Check if it's the "app not found" error
           if (sendError.message?.includes('Chat app not found') || sendError.code === 404) {
             return res.status(500).json({
-              error: "Para enviar mensagens, você precisa configurar um Chat App no Google Cloud Console. Veja as instruções abaixo.",
+              error: "Para enviar mensagens, você precisa configurar um Chat App no Google Cloud Console.",
               instructionUrl: "https://console.cloud.google.com/apis/credentials",
-              helpText: "1. Vá em APIs & Services → Credentials\n2. Clique em seu OAuth Client ID\n3. Em 'Authorized origins', adicione: https://nura-flow.onrender.com\n4. Em 'Redirect URIs', adicione: https://nura-flow.onrender.com/api/auth/google/callback\n5. Salve e reconecte no NuRa"
+              helpText: `1. Vá em APIs & Services → Library
+2. Busque por "Google Chat API" e clique em ENABLE
+3. Vá em APIs & Services → OAuth consent screen
+4. Em Scopes, adicione: https://www.googleapis.com/auth/chat.messages
+5. Vá em APIs & Services → Credentials
+6. Crie um OAuth Client ID (Web application)
+7. Adicione: https://nura-flow.onrender.com nos origins
+8. Adicione: https://nura-flow.onrender.com/api/auth/google/callback nos redirect URIs
+9. Copie o Client ID e Secret
+10. No NuRa, vá em Configurações → Google → Cole os dados → Salve
+11. Reconecte ao Google`
             });
           }
           throw sendError;
