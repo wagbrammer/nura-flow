@@ -1324,27 +1324,49 @@ async function startServer() {
               const msgResponse = await Promise.race([
                 (chat.spaces.messages.list as any)({
                   parent: space.name,
-                  pageSize: 10,
+                  pageSize: 20,
                   orderBy: 'createTime DESC',
                 }),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
               ]);
               const msgs = (msgResponse as any).data?.messages || [];
-              // Find first message NOT from current user
-              for (const msg of msgs) {
-                const senderName = msg.sender?.displayName;
-                // Skip if it's the current user (we want the other person's name)
-                if (senderName && senderName !== storedTokens?.scope?.split(' ')[0]?.replace('https://www.googleapis.com/auth/', '')) {
-                  // Check if this is NOT the current user by checking if name is different from what we expect
-                  // For now, just use the first sender name that's not empty
-                  if (senderName) {
+
+              // Get current user's info to identify their messages
+              try {
+                const people = google.people({ version: 'v1', auth: client });
+                const myInfo = await Promise.race([
+                  people.people.get({
+                    resourceName: 'people/me',
+                    personFields: 'names,emailAddresses',
+                  }),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                ]);
+
+                const myEmails = ((myInfo as any).data?.emailAddresses || []).map((e: any) => e.value.toLowerCase());
+                const myNames = ((myInfo as any).data?.names || []).map((n: any) => n.displayName.toLowerCase());
+
+                // Find first message from a DIFFERENT person
+                for (const msg of msgs) {
+                  const senderName = msg.sender?.displayName;
+                  const senderEmail = msg.sender?.email;
+
+                  if (!senderName) continue;
+
+                  // Check if this sender is NOT the current user
+                  const isMe = senderEmail
+                    ? myEmails.includes(senderEmail.toLowerCase())
+                    : myNames.some(n => senderName.toLowerCase().includes(n));
+
+                  if (!isMe) {
                     displayName = senderName;
                     break;
                   }
                 }
+              } catch (e) {
+                console.log('⚠️ Não foi possível obter info do usuário:', e);
               }
 
-              // If all messages are from current user, try first message
+              // If we still don't have a name, use the first message sender
               if (!displayName && msgs[0]?.sender?.displayName) {
                 displayName = msgs[0].sender.displayName;
               }
