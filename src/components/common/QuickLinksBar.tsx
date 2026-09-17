@@ -102,10 +102,10 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
   };
 
   const [showExtraLinks, setShowExtraLinks] = useState(false);
+  const visibleFavorites = favorites.slice(0, 4);
   const extraLinks = favorites.slice(4);
 
   if (variant === 'desktop') {
-    const visibleFavorites = favorites.slice(0, 4);
     return (
       <div className="hidden shrink-0 items-center gap-1.5 border-l border-slate-200 pl-3 dark:border-slate-700 xl:flex" aria-label="Atalhos favoritos">
         {visibleFavorites.length > 0 ? visibleFavorites.map(link => {
