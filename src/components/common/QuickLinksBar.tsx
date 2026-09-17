@@ -200,98 +200,90 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
     );
   }
 
+  // Mobile/Tablet version - shows all links in a simple grid
   return (
-    <div className="xl:hidden">
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="relative grid h-11 w-11 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-        title="Acessos rápidos"
-        aria-label="Abrir acessos rápidos"
-      >
-        <Link2 className="h-4 w-4" />
-        {favorites.length > 0 && <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />}
-      </button>
+    <div className="flex xl:hidden items-center gap-2">
+      {/* Show up to 3 visible links */}
+      {visibleFavorites.slice(0, 3).map(link => {
+        const Icon = ICONS[link.icon] || Link2;
+        return (
+          <button
+            key={link.id}
+            type="button"
+            onClick={() => activateLink(link)}
+            className={`flex flex-col items-center gap-0.5 p-2 rounded-xl transition ${COLORS[link.color]}`}
+            title={link.location === 'web' ? `Abrir ${link.title}` : `Copiar ${link.title}`}
+          >
+            <Icon className="h-4 w-4" />
+            <span className="text-[9px] font-bold truncate max-w-full">{link.title}</span>
+          </button>
+        );
+      })}
 
-      {isOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/65 backdrop-blur-sm" onMouseDown={() => setIsOpen(false)}>
-          <section className="max-h-[78vh] w-full overflow-y-auto rounded-t-3xl border-t border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="mobile-quick-links-title" onMouseDown={event => event.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"><Star className="h-4 w-4" fill="currentColor" /></span>
-                <div><h2 id="mobile-quick-links-title" className="text-sm font-extrabold text-slate-900 dark:text-white">Acessos rápidos</h2><p className="text-xs text-slate-500">Seus atalhos favoritos</p></div>
-              </div>
-              <button type="button" onClick={() => setIsOpen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Fechar acessos rápidos"><X className="h-5 w-5" /></button>
+      {/* Show "+N" button if there are extra links */}
+      {extraLinks.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowExtraLinks(!showExtraLinks)}
+          className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+          title={`Ver mais ${extraLinks.length} atalhos`}
+        >
+          <span className="text-[10px] font-black">+{extraLinks.length}</span>
+        </button>
+      )}
+
+      {/* Extra links dropdown */}
+      {showExtraLinks && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-50 bg-black/50"
+            onClick={() => setShowExtraLinks(false)}
+          />
+          {/* Dropdown panel */}
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[90vw] max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Mais atalhos</h3>
+              <button
+                type="button"
+                onClick={() => setShowExtraLinks(false)}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+              >
+                <X className="h-4 w-4 text-slate-500" />
+              </button>
             </div>
-
-            {notice && <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" role="status">{notice}</p>}
-
-            {favorites.length > 0 ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  {visibleFavorites.map(link => {
-                    const Icon = ICONS[link.icon] || Link2;
-                    return (
-                      <button key={link.id} type="button" onClick={() => { activateLink(link); setIsOpen(false); }} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition active:scale-[.98] dark:border-slate-700 dark:bg-slate-800/70">
-                        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${COLORS[link.color]}`}><Icon className="h-5 w-5" /></span>
-                        <span className="min-w-0"><strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{link.title}</strong><span className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">{link.location === 'web' ? <><ExternalLink className="h-3 w-3" /> Abrir</> : <><Copy className="h-3 w-3" /> Copiar</>}</span></span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {extraLinks.length > 0 && (
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setShowExtraLinks(!showExtraLinks)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      <Link2 className="h-4 w-4" />
-                      Ver mais {extraLinks.length} atalhos
-                    </button>
-
-                    {showExtraLinks && (
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        {extraLinks.map(link => {
-                          const Icon = ICONS[link.icon] || Link2;
-                          return (
-                            <button
-                              key={link.id}
-                              type="button"
-                              onClick={() => { activateLink(link); setIsOpen(false); }}
-                              className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition active:scale-[.98] dark:border-slate-700 dark:bg-slate-800/70"
-                            >
-                              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${COLORS[link.color]}`}>
-                                <Icon className="h-5 w-5" />
-                              </span>
-                              <span className="min-w-0">
-                                <strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{link.title}</strong>
-                                <span className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">
-                                  {link.location === 'web' ? <><ExternalLink className="h-3 w-3" /> Abrir</> : <><Copy className="h-3 w-3" /> Copiar</>}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-8 text-center dark:border-slate-700">
-                <Link2 className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-3 text-xs font-semibold text-slate-500">Nenhum atalho favorito.</p>
-              </div>
-            )}
-
-            <button type="button" onClick={openManager} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white">
-              <Settings className="h-4 w-4" />
-              Gerenciar Links Úteis
+            <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+              {extraLinks.map(link => {
+                const Icon = ICONS[link.icon] || Link2;
+                return (
+                  <button
+                    key={link.id}
+                    type="button"
+                    onClick={() => {
+                      activateLink(link);
+                      setShowExtraLinks(false);
+                    }}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl transition ${COLORS[link.color]}`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="text-[10px] font-bold truncate w-full text-center">{link.title}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowExtraLinks(false);
+                openManager();
+              }}
+              className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              Gerenciar todos os atalhos
             </button>
-          </section>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
