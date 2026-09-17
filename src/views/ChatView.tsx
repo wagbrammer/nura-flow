@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   MessageSquare,
@@ -74,6 +74,38 @@ export const ChatView: React.FC = () => {
   );
 
   const selectedSpace = googleSpaces.find(s => s.spaceId === selectedSpaceId);
+  const [spaceMessages, setSpaceMessages] = useState<ChatMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Fetch messages when a space is selected
+  useEffect(() => {
+    if (!selectedSpaceId) {
+      setSpaceMessages([]);
+      return;
+    }
+
+    console.log(`🔍 Buscando mensagens da sala ${selectedSpaceId}...`);
+    setLoadingMessages(true);
+    fetch(`/api/google/chat/messages/${selectedSpaceId}`, { credentials: 'same-origin' })
+      .then(res => {
+        console.log(`📡 Resposta das mensagens:`, res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log(`📦 Mensagens recebidas:`, data);
+        setSpaceMessages(data.messages || []);
+      })
+      .catch(err => {
+        console.error('❌ Erro ao buscar mensagens:', err);
+      })
+      .finally(() => setLoadingMessages(false));
+  }, [selectedSpaceId]);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [spaceMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,14 +321,41 @@ export const ChatView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Info Area */}
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                  <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
-                  <p className="text-sm font-medium">Envie uma mensagem</p>
-                  <p className="text-xs mt-1">A API do Google Chat permite enviar mensagens, mas não ler histórico</p>
-                  <p className="text-xs mt-2 text-emerald-600">Use o Google Chat para ver conversas anteriores</p>
-                </div>
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={messagesEndRef}>
+                {loadingMessages ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                  </div>
+                ) : spaceMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                    <MessageSquare className="w-12 h-12 opacity-30 mb-3" />
+                    <p className="text-sm font-medium">Nenhuma mensagem ainda</p>
+                    <p className="text-xs mt-1">Seja o primeiro a escrever!</p>
+                  </div>
+                ) : (
+                  spaceMessages.map((msg) => {
+                    const isOwn = msg.sender.name.startsWith('users/');
+                    return (
+                      <div key={msg.id || Math.random()} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[70%] ${isOwn ? 'flex-row-reverse' : 'flex-row'} space-x-2`}>
+                          <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+                            <div className={`p-3 rounded-2xl ${
+                              isOwn
+                                ? 'bg-emerald-600 text-white rounded-tr-none'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-none'
+                            }`}>
+                              <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono mt-1 px-1">
+                              {new Date(msg.createTime).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               {/* Composer */}
