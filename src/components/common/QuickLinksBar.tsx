@@ -15,6 +15,8 @@ import {
   Star,
   Users,
   X,
+  ChevronDown,
+  ChevronUp,
   type LucideIcon
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -73,14 +75,13 @@ type QuickLinksBarProps = {
 
 export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
   const { usefulLinks, setCurrentView } = useApp();
-  const [isOpen, setIsOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [expanded, setExpanded] = useState(false);
   const favorites = usefulLinks
     .filter(link => link.isFavorite)
     .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
 
   const openManager = () => {
-    setIsOpen(false);
     setCurrentView('useful_links');
   };
 
@@ -93,7 +94,6 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
         return;
       }
       window.open(address, '_blank', 'noopener,noreferrer');
-      setIsOpen(false);
       return;
     }
 
@@ -101,10 +101,11 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
     setNotice('Caminho copiado. Cole no Explorador de Arquivos.');
   };
 
-  const [showExtraLinks, setShowExtraLinks] = useState(false);
-  const visibleFavorites = favorites.slice(0, 4);
-  const extraLinks = favorites.slice(4);
+  const visibleCount = 4;
+  const visibleFavorites = favorites.slice(0, visibleCount);
+  const extraLinks = favorites.slice(visibleCount);
 
+  // ─── DESKTOP ───────────────────────────────────────────────
   if (variant === 'desktop') {
     return (
       <div className="hidden shrink-0 items-center gap-1.5 border-l border-slate-200 pl-3 dark:border-slate-700 xl:flex" aria-label="Atalhos favoritos">
@@ -135,19 +136,16 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setShowExtraLinks(!showExtraLinks)}
+              onClick={() => setExpanded(!expanded)}
               className="grid h-9 min-w-9 place-items-center rounded-xl bg-slate-100 px-2 text-[10px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               title={`Ver mais ${extraLinks.length} atalhos`}
             >
               +{extraLinks.length}
             </button>
 
-            {showExtraLinks && (
+            {expanded && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowExtraLinks(false)}
-                />
+                <div className="fixed inset-0 z-40" onClick={() => setExpanded(false)} />
                 <div className="absolute left-0 top-full mt-2 z-50 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-2">
                   <div className="max-h-80 overflow-y-auto">
                     {extraLinks.map(link => {
@@ -156,10 +154,7 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
                         <button
                           key={link.id}
                           type="button"
-                          onClick={() => {
-                            activateLink(link);
-                            setShowExtraLinks(false);
-                          }}
+                          onClick={() => { activateLink(link); setExpanded(false); }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${COLORS[link.color].replace('hover:', '')} hover:opacity-80`}
                         >
                           <Icon className="h-4 w-4 shrink-0" />
@@ -171,10 +166,7 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
                   <div className="border-t border-slate-200 dark:border-slate-700 mt-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowExtraLinks(false);
-                        openManager();
-                      }}
+                      onClick={() => { setExpanded(false); openManager(); }}
                       className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                     >
                       <Settings className="h-3.5 w-3.5" />
@@ -200,70 +192,61 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
     );
   }
 
-  // Mobile/Tablet version - shows all links in a simple grid
+  // ─── MOBILE / TABLET ───────────────────────────────────────
+  // Strategy:
+  //   1. Show up to 4 links inline in the header (they fit in the row)
+  //   2. If more exist, show a "+N" button inline — no overlay
+  //   3. Clicking "+N" toggles an in-flow grid below the header
+  //      (never covers search, never fixed overlay)
+  //   4. Tapping any link navigates and collapses the grid
+
   return (
-    <div className="flex xl:hidden items-center gap-2">
-      {/* Show up to 3 visible links */}
-      {visibleFavorites.slice(0, 3).map(link => {
+    <div className="flex xl:hidden items-center gap-1.5">
+      {/* Visible inline links */}
+      {visibleFavorites.slice(0, 4).map(link => {
         const Icon = ICONS[link.icon] || Link2;
         return (
           <button
             key={link.id}
             type="button"
             onClick={() => activateLink(link)}
-            className={`flex flex-col items-center gap-0.5 p-2 rounded-xl transition ${COLORS[link.color]}`}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition ${COLORS[link.color]}`}
             title={link.location === 'web' ? `Abrir ${link.title}` : `Copiar ${link.title}`}
+            aria-label={link.title}
           >
-            <Icon className="h-4 w-4" />
-            <span className="text-[9px] font-bold truncate max-w-full">{link.title}</span>
+            <Icon className="h-3.5 w-3.5" />
+            <span className="text-[8px] font-bold truncate max-w-[52px]">{link.title}</span>
           </button>
         );
       })}
 
-      {/* Show "+N" button if there are extra links */}
+      {/* "+N" toggle — always in the header row, never covers content */}
       {extraLinks.length > 0 && (
         <button
           type="button"
-          onClick={() => setShowExtraLinks(!showExtraLinks)}
-          className="flex flex-col items-center gap-0.5 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-          title={`Ver mais ${extraLinks.length} atalhos`}
+          onClick={() => setExpanded(!expanded)}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 ${expanded ? 'bg-slate-200 dark:bg-slate-700' : ''}`}
+          aria-expanded={expanded}
+          aria-label={`Ver mais ${extraLinks.length} atalhos`}
         >
-          <span className="text-[10px] font-black">+{extraLinks.length}</span>
+          <span className="text-[9px] font-black">+{extraLinks.length}</span>
+          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       )}
 
-      {/* Extra links dropdown */}
-      {showExtraLinks && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-50 bg-black/50"
-            onClick={() => setShowExtraLinks(false)}
-          />
-          {/* Dropdown panel */}
-          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[90vw] max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Mais atalhos</h3>
-              <button
-                type="button"
-                onClick={() => setShowExtraLinks(false)}
-                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-              >
-                <X className="h-4 w-4 text-slate-500" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
-              {extraLinks.map(link => {
+      {/* In-flow expanded panel — sits below header, never overlays search */}
+      {expanded && (
+        <div className="fixed inset-x-0 top-16 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-700 shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+              {favorites.map(link => {
                 const Icon = ICONS[link.icon] || Link2;
                 return (
                   <button
                     key={link.id}
                     type="button"
-                    onClick={() => {
-                      activateLink(link);
-                      setShowExtraLinks(false);
-                    }}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-xl transition ${COLORS[link.color]}`}
+                    onClick={() => { activateLink(link); setExpanded(false); }}
+                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl transition active:scale-95 ${COLORS[link.color]}`}
                   >
                     <Icon className="h-5 w-5" />
                     <span className="text-[10px] font-bold truncate w-full text-center">{link.title}</span>
@@ -271,19 +254,18 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
                 );
               })}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setShowExtraLinks(false);
-                openManager();
-              }}
-              className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
-            >
-              <Settings className="h-3.5 w-3.5" />
-              Gerenciar todos os atalhos
-            </button>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={openManager}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Gerenciar links
+              </button>
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
