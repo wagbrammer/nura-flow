@@ -227,22 +227,69 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
             {notice && <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" role="status">{notice}</p>}
 
             {favorites.length > 0 ? (
-              <div className="grid grid-cols-2 gap-2">
-                {favorites.map(link => {
-                  const Icon = ICONS[link.icon] || Link2;
-                  return (
-                    <button key={link.id} type="button" onClick={() => activateLink(link)} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition active:scale-[.98] dark:border-slate-700 dark:bg-slate-800/70">
-                      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${COLORS[link.color]}`}><Icon className="h-5 w-5" /></span>
-                      <span className="min-w-0"><strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{link.title}</strong><span className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">{link.location === 'web' ? <><ExternalLink className="h-3 w-3" /> Abrir</> : <><Copy className="h-3 w-3" /> Copiar</>}</span></span>
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  {visibleFavorites.map(link => {
+                    const Icon = ICONS[link.icon] || Link2;
+                    return (
+                      <button key={link.id} type="button" onClick={() => { activateLink(link); setIsOpen(false); }} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition active:scale-[.98] dark:border-slate-700 dark:bg-slate-800/70">
+                        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${COLORS[link.color]}`}><Icon className="h-5 w-5" /></span>
+                        <span className="min-w-0"><strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{link.title}</strong><span className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">{link.location === 'web' ? <><ExternalLink className="h-3 w-3" /> Abrir</> : <><Copy className="h-3 w-3" /> Copiar</>}</span></span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {extraLinks.length > 0 && (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowExtraLinks(!showExtraLinks)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <Link2 className="h-4 w-4" />
+                      Ver mais {extraLinks.length} atalhos
                     </button>
-                  );
-                })}
-              </div>
+
+                    {showExtraLinks && (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {extraLinks.map(link => {
+                          const Icon = ICONS[link.icon] || Link2;
+                          return (
+                            <button
+                              key={link.id}
+                              type="button"
+                              onClick={() => { activateLink(link); setIsOpen(false); }}
+                              className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition active:scale-[.98] dark:border-slate-700 dark:bg-slate-800/70"
+                            >
+                              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${COLORS[link.color]}`}>
+                                <Icon className="h-5 w-5" />
+                              </span>
+                              <span className="min-w-0">
+                                <strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{link.title}</strong>
+                                <span className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">
+                                  {link.location === 'web' ? <><ExternalLink className="h-3 w-3" /> Abrir</> : <><Copy className="h-3 w-3" /> Copiar</>}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-8 text-center dark:border-slate-700"><Link2 className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-xs font-semibold text-slate-500">Nenhum atalho favorito.</p></div>
+              <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-8 text-center dark:border-slate-700">
+                <Link2 className="mx-auto h-8 w-8 text-slate-300" />
+                <p className="mt-3 text-xs font-semibold text-slate-500">Nenhum atalho favorito.</p>
+              </div>
             )}
 
-            <button type="button" onClick={openManager} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white"><Settings className="h-4 w-4" /> Gerenciar Links Úteis</button>
+            <button type="button" onClick={openManager} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white">
+              <Settings className="h-4 w-4" />
+              Gerenciar Links Úteis
+            </button>
           </section>
         </div>
       )}
