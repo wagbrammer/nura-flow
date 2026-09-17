@@ -1285,9 +1285,10 @@ async function startServer() {
 
       const spaces = (response as any).data?.spaces || [];
 
-      // Log first space to debug
-      if (spaces.length > 0) {
-        console.log('🔍 Primeiro espaço:', JSON.stringify(spaces[0], null, 2));
+      // Log first DM space to debug
+      const dmSpace = spaces.find((s: any) => s.spaceType === 'DIRECT_MESSAGE');
+      if (dmSpace) {
+        console.log('🔍 Primeiro DM:', JSON.stringify(dmSpace, null, 2));
       }
 
       const formattedSpaces = spaces.map((space: any) => {
