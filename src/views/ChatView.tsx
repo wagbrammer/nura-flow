@@ -115,22 +115,25 @@ export const ChatView: React.FC = () => {
     setIsSending(true);
     setSendMessageError(null);
 
-    // Send via API if Google is connected
+    // Send via API if Google is connected and it's a ROOM (not DM)
     if (googleConnected && selectedSpace) {
-      try {
-        const body: any = { text: messageText.trim() };
-        if (selectedSpace.spaceId) {
-          body.roomId = selectedSpace.spaceId;
-        }
-        if (selectedSpace.isDM && selectedSpace.dmContactEmail) {
-          body.userEmail = selectedSpace.dmContactEmail;
-        }
+      if (selectedSpace.isDM) {
+        // For DMs, open Google Chat web app (API requires Chat App/bot)
+        setSendMessageError('Para enviar mensagens em conversas diretas (DM), abra o Google Chat: clique no botão "Abrir Chat" no topo.');
+        window.open('https://chat.google.com', '_blank');
+        setIsSending(false);
+        return;
+      }
 
+      try {
         const res = await fetch('/api/google/chat/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify(body)
+          body: JSON.stringify({
+            roomId: selectedSpace.spaceId,
+            text: messageText.trim()
+          })
         });
 
         const data = await res.json();
@@ -389,10 +392,17 @@ export const ChatView: React.FC = () => {
 
                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
                     {googleConnected ? (
-                      <span className="flex items-center gap-1 text-emerald-600">
-                        <CheckCircle2 className="w-3 h-3" />
-                        {selectedSpace?.isDM ? 'Conectado — enviando DM' : 'Conectado — mensagens enviadas para a sala'}
-                      </span>
+                      selectedSpace?.isDM ? (
+                        <span className="flex items-center gap-1 text-amber-600">
+                          <AlertTriangle className="w-3 h-3" />
+                          DM: Use o Google Chat web app (clique "Abrir Chat")
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-emerald-600">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Conectado — mensagens enviadas para a sala
+                        </span>
+                      )
                     ) : (
                       <span className="flex items-center gap-1 text-amber-600">
                         <AlertTriangle className="w-3 h-3" />

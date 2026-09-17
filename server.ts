@@ -1194,7 +1194,7 @@ async function startServer() {
         return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
       }
 
-      const { roomId, text, mentions, userEmail } = req.body;
+      const { roomId, text, mentions } = req.body;
       if (!text) return res.status(400).json({ error: "Mensagem vazia" });
 
       const chat = google.chat({ version: 'v1', auth: client });
@@ -1205,7 +1205,7 @@ async function startServer() {
         message.carbonCopy = mentions;
       }
 
-      // Send to room or DM
+      // Send to room (DMs require Chat App/bot)
       if (roomId) {
         try {
           const response = await Promise.race([
@@ -1221,40 +1221,8 @@ async function startServer() {
           console.error("❌ Erro ao enviar mensagem:", sendError.message);
           throw sendError;
         }
-      } else if (userEmail) {
-        // Find or create DM with user
-        try {
-          // Find existing DM or create new one
-          const dmResponse = await Promise.race([
-            chat.spaces.findDirectMessage({
-              person: `people/${userEmail}`,
-            }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-          ]);
-
-          const dmSpaceName = (dmResponse as any).data?.name;
-          if (!dmSpaceName) {
-            throw new Error("Não foi possível encontrar a conversa direta");
-          }
-
-          console.log(`📩 Enviando DM para ${userEmail}:`, dmSpaceName);
-
-          const response = await Promise.race([
-            chat.spaces.messages.create({
-              parent: `spaces/${dmSpaceName}`,
-              requestBody: message,
-            }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-          ]);
-
-          console.log(`✅ DM enviado para ${userEmail}`);
-          res.json({ success: true, messageId: (response as any).data?.name });
-        } catch (error: any) {
-          console.error("❌ Erro ao enviar DM:", error.message);
-          res.status(500).json({ error: `Erro ao enviar DM: ${error.message}` });
-        }
       } else {
-        res.status(400).json({ error: "roomId ou userEmail é obrigatório para enviar mensagem" });
+        res.status(400).json({ error: "roomId é obrigatório para enviar mensagem" });
       }
     } catch (error: any) {
       console.error("❌ Erro ao enviar mensagem:", error.message);
