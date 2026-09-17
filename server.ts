@@ -1294,28 +1294,30 @@ async function startServer() {
         // For DMs, try multiple sources for the display name
         let displayName = space.displayName;
 
+        // Check if it's a DM (can be 'DM' or 'DIRECT_MESSAGE')
+        const isDM = space.spaceType === 'DM' || space.spaceType === 'DIRECT_MESSAGE';
+
         // Try to extract name from various fields
-        if (!displayName || displayName === 'DM' || displayName === 'DIRECT_MESSAGE') {
+        if (!displayName || displayName === space.spaceId) {
           // Check dmDetails for contact info
           if (space.dmDetails?.userDisplayName) {
             displayName = space.dmDetails.userDisplayName;
-          } else if (space.dmDetails?.userToMessageDisplayName) {
-            displayName = space.dmDetails.userToMessageDisplayName;
+          } else if (space.dmDetails?.contactName) {
+            displayName = space.dmDetails.contactName;
           } else if (space.title) {
             displayName = space.title;
-          } else if (space.name) {
-            // Extract from resource name (e.g., "spaces/XXX" -> use last part)
-            const parts = space.name.split('/');
-            displayName = parts[parts.length - 1];
+          } else if (isDM) {
+            // For DMs without name, use a placeholder
+            displayName = 'Conversa Direta';
           }
         }
 
         return {
           name: space.name,
-          displayName: displayName || 'Conversa Direta',
+          displayName: displayName || (isDM ? 'Conversa Direta' : space.spaceType),
           spaceType: space.spaceType,
           spaceId: space.name?.split('/').pop(),
-          isDM: space.spaceType === 'DM',
+          isDM,
         };
       });
 
