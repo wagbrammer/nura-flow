@@ -1291,15 +1291,13 @@ async function startServer() {
         console.log('🔍 Primeiro DM:', JSON.stringify(dmSpace, null, 2));
       }
 
-      const formattedSpaces = spaces.map((space: any) => {
-        // For DMs, try multiple sources for the display name
-        let displayName = space.displayName;
-
+      const formattedSpaces = await Promise.all(spaces.map(async (space: any) => {
         // Check if it's a DM (can be 'DM' or 'DIRECT_MESSAGE')
         const isDM = space.spaceType === 'DM' || space.spaceType === 'DIRECT_MESSAGE';
+        let displayName = space.displayName;
 
         // Try to extract name from various fields
-        if (!displayName || displayName === space.spaceId) {
+        if (!displayName || displayName === space.name?.split('/').pop()) {
           // Check dmDetails for contact info
           if (space.dmDetails?.userDisplayName) {
             displayName = space.dmDetails.userDisplayName;
@@ -1308,8 +1306,28 @@ async function startServer() {
           } else if (space.title) {
             displayName = space.title;
           } else if (isDM) {
-            // For DMs without name, use a placeholder
-            displayName = 'Conversa Direta';
+            // For DMs without name, fetch first message to get sender name
+            try {
+              const chat = google.chat({ version: 'v1', auth: client });
+              const msgResponse = await Promise.race([
+                (chat.spaces.messages.list as any)({
+                  parent: space.name,
+                  pageSize: 1,
+                  orderBy: 'createTime ASC',
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+              ]);
+              const firstMsg = (msgResponse as any).data?.messages?.[0];
+              if (firstMsg?.sender?.displayName) {
+                displayName = firstMsg.sender.displayName;
+              }
+            } catch (e) {
+              console.log('⚠️ Não foi possível obter nome do DM:', space.name);
+            }
+
+            if (!displayName) {
+              displayName = 'Conversa Direta';
+            }
           }
         }
 
@@ -1320,7 +1338,7 @@ async function startServer() {
           spaceId: space.name?.split('/').pop(),
           isDM,
         };
-      });
+      }));
 
       console.log(`✅ Encontrados ${formattedSpaces.length} espaços no Google Chat`);
       res.json({ spaces: formattedSpaces });
