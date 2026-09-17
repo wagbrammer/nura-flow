@@ -114,8 +114,16 @@ export const ChatView: React.FC = () => {
     setIsSending(true);
     setSendMessageError(null);
 
-    // Send via API if Google is connected
+    // Send via API if Google is connected and it's a ROOM (not DM)
     if (googleConnected && selectedSpace) {
+      if (selectedSpace.isDM) {
+        // For DMs, open Google Chat web app (API requires Chat App/bot)
+        setSendMessageError('Para enviar mensagens em conversas diretas (DM), abra o Google Chat: clique no botão "Abrir Chat" no topo.');
+        window.open('https://chat.google.com', '_blank');
+        setIsSending(false);
+        return;
+      }
+
       try {
         const res = await fetch('/api/google/chat/send', {
           method: 'POST',
@@ -135,6 +143,7 @@ export const ChatView: React.FC = () => {
 
         console.log('✅ Mensagem enviada via API:', data.messageId);
         setMessageText('');
+        setSendMessageError(null);
       } catch (err: any) {
         console.warn('API falhou:', err.message);
         setSendMessageError(err.message);
@@ -382,10 +391,17 @@ export const ChatView: React.FC = () => {
 
                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
                     {googleConnected ? (
-                      <span className="flex items-center gap-1 text-emerald-600">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Conectado ao Google Chat
-                      </span>
+                      selectedSpace?.isDM ? (
+                        <span className="flex items-center gap-1 text-amber-600">
+                          <AlertTriangle className="w-3 h-3" />
+                          DM: Use o Google Chat web app (clique "Abrir Chat")
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-emerald-600">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Conectado — mensagens enviadas para a sala
+                        </span>
+                      )
                     ) : (
                       <span className="flex items-center gap-1 text-amber-600">
                         <AlertTriangle className="w-3 h-3" />

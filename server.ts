@@ -1218,22 +1218,12 @@ async function startServer() {
           console.log(`✅ Mensagem enviada para sala ${roomId}`);
           res.json({ success: true, messageId: (response as any).data?.name });
         } catch (sendError: any) {
-          // Check if it's the "app not found" error
+          // Check if it's the "app not found" error (happens for DMs without Chat App)
           if (sendError.message?.includes('Chat app not found') || sendError.code === 404) {
-            return res.status(500).json({
-              error: "Para enviar mensagens, você precisa configurar um Chat App no Google Cloud Console.",
-              instructionUrl: "https://console.cloud.google.com/apis/credentials",
-              helpText: `1. Vá em APIs & Services → Library
-2. Busque por "Google Chat API" e clique em ENABLE
-3. Vá em APIs & Services → OAuth consent screen
-4. Em Scopes, adicione: https://www.googleapis.com/auth/chat.messages
-5. Vá em APIs & Services → Credentials
-6. Crie um OAuth Client ID (Web application)
-7. Adicione: https://nura-flow.onrender.com nos origins
-8. Adicione: https://nura-flow.onrender.com/api/auth/google/callback nos redirect URIs
-9. Copie o Client ID e Secret
-10. No NuRa, vá em Configurações → Google → Cole os dados → Salve
-11. Reconecte ao Google`
+            return res.status(400).json({
+              error: "Para enviar mensagens em conversas diretas (DM), você precisa criar um Chat App (bot) no Google Cloud Console. Por enquanto, abra o Google Chat web app para enviar mensagens.",
+              chatUrl: 'https://chat.google.com',
+              instructionUrl: "https://console.cloud.google.com/apis/credentials"
             });
           }
           throw sendError;
