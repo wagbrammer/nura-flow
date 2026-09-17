@@ -954,6 +954,15 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // Get current Google config (for editing)
+  app.get("/api/settings/google-config", async (req, res) => {
+    res.json({
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ? process.env.GOOGLE_CLIENT_SECRET.substring(0, 8) + '...' : '',
+      hasFullSecret: !!process.env.GOOGLE_CLIENT_SECRET
+    });
+  });
+
   // Save Google Config to .env
   app.post("/api/settings/google-config", async (req, res) => {
     const { clientId, clientSecret } = req.body;
@@ -986,9 +995,17 @@ async function startServer() {
 
       fs.writeFileSync(envPath, envContent.trim() + "\n", "utf8");
 
+      // Reload environment variables
+      delete require.cache[require.resolve('dotenv/config')];
+      dotenv.config();
+
+      // Update the module-level variables
+      global.GOOGLE_CLIENT_ID = clientId;
+      global.GOOGLE_CLIENT_SECRET = clientSecret;
+
       res.json({
         success: true,
-        message: "Configurações salvas no .env com sucesso! Reinicie o servidor para aplicar."
+        message: "Configurações salvas com sucesso! O servidor irá recarregar automaticamente."
       });
     } catch (error: any) {
       console.error("Erro ao salvar .env:", error);

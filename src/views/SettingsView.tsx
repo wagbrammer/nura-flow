@@ -300,6 +300,7 @@ export const SettingsView: React.FC = () => {
 
   useEffect(() => {
     fetchGoogleStatus();
+    fetchGoogleConfig();
     fetchGeminiStatus();
     fetchOpenRouterStatus();
     fetchEmailStatus();
@@ -626,8 +627,11 @@ export const SettingsView: React.FC = () => {
       });
       const data = await response.json();
       if (data.success) {
-        setShowRestartAlert(true);
+        setShowGoogleConfigEditor(false);
+        setClientId('');
+        setClientSecret('');
         fetchGoogleStatus();
+        alert('✅ Configuração salva com sucesso! O servidor irá recarregar automaticamente.');
       } else {
         alert('Erro: ' + data.error);
       }
@@ -635,6 +639,22 @@ export const SettingsView: React.FC = () => {
       alert('Erro ao salvar configuração.');
     } finally {
       setIsSavingConfig(false);
+    }
+  };
+
+  const fetchGoogleConfig = async () => {
+    try {
+      const response = await fetch('/api/settings/google-config');
+      const data = await response.json();
+      if (data.clientId) {
+        setClientId(data.clientId);
+        // Don't show full secret for security
+        if (data.hasFullSecret) {
+          setClientSecret('••••••••'); // Placeholder
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar configuração Google:', error);
     }
   };
 
@@ -1093,7 +1113,12 @@ export const SettingsView: React.FC = () => {
 
           {/* Botão para editar configuração sempre visível */}
           <button
-            onClick={() => setShowGoogleConfigEditor(!showGoogleConfigEditor)}
+            onClick={() => {
+              setShowGoogleConfigEditor(!showGoogleConfigEditor);
+              if (!showGoogleConfigEditor) {
+                fetchGoogleConfig();
+              }
+            }}
             className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
           >
             <Settings className="w-3 h-3" />
