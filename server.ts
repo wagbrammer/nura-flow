@@ -1194,7 +1194,7 @@ async function startServer() {
         return res.status(401).json({ error: "Não autenticado no Google. Conecte primeiro." });
       }
 
-      const { roomId, text, mentions } = req.body;
+      const { roomId, text, mentions, userEmail } = req.body;
       if (!text) return res.status(400).json({ error: "Mensagem vazia" });
 
       const chat = google.chat({ version: 'v1', auth: client });
@@ -1205,7 +1205,7 @@ async function startServer() {
         message.carbonCopy = mentions;
       }
 
-      // Send to room or use webhook URL if provided
+      // Send to room or DM
       if (roomId) {
         try {
           const response = await Promise.race([
@@ -1215,21 +1215,46 @@ async function startServer() {
             }),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
           ]);
-          console.log(`✅ Mensagem enviada para sala ${roomId}`);
+          console.log(`✅ Mensagem enviada para ${roomId}`);
           res.json({ success: true, messageId: (response as any).data?.name });
         } catch (sendError: any) {
-          // Check if it's the "app not found" error (happens for DMs without Chat App)
-          if (sendError.message?.includes('Chat app not found') || sendError.code === 404) {
-            return res.status(400).json({
-              error: "Para enviar mensagens em conversas diretas (DM), você precisa criar um Chat App (bot) no Google Cloud Console. Por enquanto, abra o Google Chat web app para enviar mensagens.",
-              chatUrl: 'https://chat.google.com',
-              instructionUrl: "https://console.cloud.google.com/apis/credentials"
-            });
-          }
+          console.error("❌ Erro ao enviar mensagem:", sendError.message);
           throw sendError;
         }
+      } else if (userEmail) {
+        // Find or create DM with user
+        try {
+          // Find existing DM or create new one
+          const dmResponse = await Promise.race([
+            chat.spaces.findDirectMessage({
+              person: `people/${userEmail}`,
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+          ]);
+
+          const dmSpaceName = (dmResponse as any).data?.name;
+          if (!dmSpaceName) {
+            throw new Error("Não foi possível encontrar a conversa direta");
+          }
+
+          console.log(`📩 Enviando DM para ${userEmail}:`, dmSpaceName);
+
+          const response = await Promise.race([
+            chat.spaces.messages.create({
+              parent: `spaces/${dmSpaceName}`,
+              requestBody: message,
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+          ]);
+
+          console.log(`✅ DM enviado para ${userEmail}`);
+          res.json({ success: true, messageId: (response as any).data?.name });
+        } catch (error: any) {
+          console.error("❌ Erro ao enviar DM:", error.message);
+          res.status(500).json({ error: `Erro ao enviar DM: ${error.message}` });
+        }
       } else {
-        res.status(400).json({ error: "roomId é obrigatório para enviar mensagem" });
+        res.status(400).json({ error: "roomId ou userEmail é obrigatório para enviar mensagem" });
       }
     } catch (error: any) {
       console.error("❌ Erro ao enviar mensagem:", error.message);
@@ -1324,6 +1349,7 @@ async function startServer() {
         // Check if it's a DM (can be 'DM' or 'DIRECT_MESSAGE')
         const isDM = space.spaceType === 'DM' || space.spaceType === 'DIRECT_MESSAGE';
         let displayName = space.displayName;
+        let dmContactEmail: string | null = null;
 
         // Try to extract name from various fields
         if (!displayName || displayName === space.name?.split('/').pop()) {
@@ -1376,6 +1402,7 @@ async function startServer() {
 
                   if (!isMe) {
                     displayName = senderName;
+                    dmContactEmail = senderEmail || null;
                     break;
                   }
                 }
@@ -1403,6 +1430,7 @@ async function startServer() {
           spaceType: space.spaceType,
           spaceId: space.name?.split('/').pop(),
           isDM,
+          ...(isDM && dmContactEmail ? { dmContactEmail } : {}),
         };
       }));
 
