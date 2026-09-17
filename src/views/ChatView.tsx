@@ -118,9 +118,9 @@ export const ChatView: React.FC = () => {
     // Send via API if Google is connected and it's a ROOM (not DM)
     if (googleConnected && selectedSpace) {
       if (selectedSpace.isDM) {
-        // For DMs, open Google Chat web app (API requires Chat App/bot)
-        setSendMessageError('Para enviar mensagens em conversas diretas (DM), abra o Google Chat: clique no botão "Abrir Chat" no topo.');
-        window.open('https://chat.google.com', '_blank');
+        // For DMs, open Google Chat web app directly to this conversation
+        // API requires a Chat App (bot) - this is a Google limitation
+        handleOpenInChat(selectedSpace);
         setIsSending(false);
         return;
       }
@@ -158,6 +158,7 @@ export const ChatView: React.FC = () => {
   };
 
   const handleOpenInChat = (space: GoogleSpace) => {
+    // Use full space name for proper deep link
     const url = `https://chat.google.com/u/0/${space.name}`;
     window.open(url, '_blank');
   };
@@ -393,14 +394,14 @@ export const ChatView: React.FC = () => {
                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
                     {googleConnected ? (
                       selectedSpace?.isDM ? (
-                        <span className="flex items-center gap-1 text-amber-600">
-                          <AlertTriangle className="w-3 h-3" />
-                          DM: Use o Google Chat web app (clique "Abrir Chat")
+                        <span className="flex items-center gap-1 text-blue-600">
+                          <ExternalLink className="w-3 h-3" />
+                          DM: clicou "Enviar" → abrindo Google Chat...
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-emerald-600">
                           <CheckCircle2 className="w-3 h-3" />
-                          Conectado — mensagens enviadas para a sala
+                          Conectado — mensagem enviada para a sala
                         </span>
                       )
                     ) : (
