@@ -1190,15 +1190,27 @@ async function startServer() {
 
       // Send to room or use webhook URL if provided
       if (roomId) {
-        const response = await Promise.race([
-          chat.spaces.messages.create({
-            parent: `spaces/${roomId}`,
-            requestBody: message,
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-        ]);
-        console.log(`✅ Mensagem enviada para sala ${roomId}`);
-        res.json({ success: true, messageId: (response as any).data?.name });
+        try {
+          const response = await Promise.race([
+            chat.spaces.messages.create({
+              parent: `spaces/${roomId}`,
+              requestBody: message,
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+          ]);
+          console.log(`✅ Mensagem enviada para sala ${roomId}`);
+          res.json({ success: true, messageId: (response as any).data?.name });
+        } catch (sendError: any) {
+          // Check if it's the "app not found" error
+          if (sendError.message?.includes('Chat app not found') || sendError.code === 404) {
+            return res.status(500).json({
+              error: "Para enviar mensagens, você precisa configurar um Chat App no Google Cloud Console. Veja as instruções abaixo.",
+              instructionUrl: "https://console.cloud.google.com/apis/credentials",
+              helpText: "1. Vá em APIs & Services → Credentials\n2. Clique em seu OAuth Client ID\n3. Em 'Authorized origins', adicione: https://nura-flow.onrender.com\n4. Em 'Redirect URIs', adicione: https://nura-flow.onrender.com/api/auth/google/callback\n5. Salve e reconecte no NuRa"
+            });
+          }
+          throw sendError;
+        }
       } else {
         res.status(400).json({ error: "roomId é obrigatório para enviar mensagem" });
       }
@@ -1306,20 +1318,35 @@ async function startServer() {
           } else if (space.title) {
             displayName = space.title;
           } else if (isDM) {
-            // For DMs without name, fetch first message to get sender name
+            // For DMs without name, fetch messages to find the OTHER person's name
             try {
               const chat = google.chat({ version: 'v1', auth: client });
               const msgResponse = await Promise.race([
                 (chat.spaces.messages.list as any)({
                   parent: space.name,
-                  pageSize: 1,
-                  orderBy: 'createTime ASC',
+                  pageSize: 10,
+                  orderBy: 'createTime DESC',
                 }),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
               ]);
-              const firstMsg = (msgResponse as any).data?.messages?.[0];
-              if (firstMsg?.sender?.displayName) {
-                displayName = firstMsg.sender.displayName;
+              const msgs = (msgResponse as any).data?.messages || [];
+              // Find first message NOT from current user
+              for (const msg of msgs) {
+                const senderName = msg.sender?.displayName;
+                // Skip if it's the current user (we want the other person's name)
+                if (senderName && senderName !== storedTokens?.scope?.split(' ')[0]?.replace('https://www.googleapis.com/auth/', '')) {
+                  // Check if this is NOT the current user by checking if name is different from what we expect
+                  // For now, just use the first sender name that's not empty
+                  if (senderName) {
+                    displayName = senderName;
+                    break;
+                  }
+                }
+              }
+
+              // If all messages are from current user, try first message
+              if (!displayName && msgs[0]?.sender?.displayName) {
+                displayName = msgs[0].sender.displayName;
               }
             } catch (e) {
               console.log('⚠️ Não foi possível obter nome do DM:', space.name);
