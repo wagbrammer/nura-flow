@@ -202,35 +202,25 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
 
   return (
     <div className="flex xl:hidden items-center gap-1.5">
-      {/* Visible inline links */}
-      {visibleFavorites.slice(0, 4).map(link => {
-        const Icon = ICONS[link.icon] || Link2;
-        return (
-          <button
-            key={link.id}
-            type="button"
-            onClick={() => activateLink(link)}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition ${COLORS[link.color]}`}
-            title={link.location === 'web' ? `Abrir ${link.title}` : `Copiar ${link.title}`}
-            aria-label={link.title}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            <span className="text-[8px] font-bold truncate max-w-[52px]">{link.title}</span>
-          </button>
-        );
-      })}
-
-      {/* "+N" toggle — always in the header row, never covers content */}
-      {extraLinks.length > 0 && (
+      {/* Only show "+N" button in header — links hidden until expanded */}
+      {favorites.length > 0 && (
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 ${expanded ? 'bg-slate-200 dark:bg-slate-700' : ''}`}
+          className={`relative flex items-center justify-center h-11 w-11 rounded-xl transition-colors ${
+            expanded
+              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+          }`}
           aria-expanded={expanded}
-          aria-label={`Ver mais ${extraLinks.length} atalhos`}
+          aria-label="Acessos rápidos"
         >
-          <span className="text-[9px] font-black">+{extraLinks.length}</span>
-          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          <Link2 className="h-4 w-4" />
+          {extraLinks.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">
+              +{extraLinks.length}
+            </span>
+          )}
         </button>
       )}
 

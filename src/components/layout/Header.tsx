@@ -101,12 +101,14 @@ export const Header: React.FC = () => {
           <FullscreenToggle compact />
         </div>
 
-        {/* Quick Add (+) Button */}
+        {/* Quick Add (+) Button - icon only on mobile vertical */}
         <button
           type="button"
           id="header-quick-add-btn"
           onClick={() => setIsQuickCaptureOpen(true)}
-          className="flex min-h-11 items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors"
+          className="flex min-h-11 items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors sm:px-3.5"
+          title="Capturar novo item"
+          aria-label="Capturar novo item"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Capturar</span>
