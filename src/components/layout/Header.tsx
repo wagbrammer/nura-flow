@@ -77,7 +77,7 @@ export const Header: React.FC = () => {
             Ctrl K
           </kbd>
         </button>
-        <QuickLinksBar variant="desktop" className="hidden sm:flex shrink-0" />
+        <QuickLinksBar variant="desktop" className="hidden lg:flex shrink-0" />
       </div>
 
       {/* Right Controls */}
