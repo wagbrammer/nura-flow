@@ -46,8 +46,9 @@ export const AgendaView: React.FC = () => {
   const [showGoogleEvents, setShowGoogleEvents] = useState(true);
   const [googleSyncing, setGoogleSyncing] = useState(false);
   const [googleSyncMsg, setGoogleSyncMsg] = useState<string | null>(null);
+  const [googleCalendarEvents, setGoogleCalendarEvents] = useState<any[]>([]);
 
-  // Auto-sync to Google Calendar when component mounts (if connected)
+  // Auto-sync to Google Calendar and fetch Google events when component mounts (if connected)
   useEffect(() => {
     let cancelled = false;
     async function autoSync() {
@@ -55,6 +56,13 @@ export const AgendaView: React.FC = () => {
         const res = await fetch('/api/auth/google/status', { credentials: 'same-origin' });
         const data = await res.json();
         if (!cancelled && data.connected) {
+          // Fetch Google Calendar events
+          const eventsRes = await fetch('/api/google/calendar/events', { credentials: 'same-origin' });
+          const eventsData = await eventsRes.json();
+          if (!cancelled && eventsData.events) {
+            setGoogleCalendarEvents(eventsData.events);
+          }
+          // Also sync all meetings to Google
           const syncRes = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });
           const syncData = await syncRes.json();
           if (!cancelled) {
@@ -118,7 +126,7 @@ export const AgendaView: React.FC = () => {
   const activeMeeting = meetings.find(m => m.id === selectedMeeting?.id) || selectedMeeting;
 
   // Filter Google Calendar events for current view
-  const googleEvents = events.filter((e) => 'isGoogleEvent' in e && (e as any).isGoogleEvent && showGoogleEvents);
+  const googleEvents = googleCalendarEvents.filter((e) => showGoogleEvents);
 
   // Edit meeting handlers
   const handleEditMeeting = (meeting: any) => {
@@ -260,12 +268,19 @@ export const AgendaView: React.FC = () => {
               setGoogleSyncing(true);
               setGoogleSyncMsg(null);
               try {
-                const res = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });
-                const data = await res.json();
-                if (res.ok) {
-                  setGoogleSyncMsg(`✅ ${data.synced} reuniões sincronizadas com Google Calendar${data.errors ? `, ${data.errors} erros` : ''}`);
+                // First sync meetings to Google
+                const syncRes = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });
+                const syncData = await syncRes.json();
+                // Then fetch fresh events from Google
+                const eventsRes = await fetch('/api/google/calendar/events', { credentials: 'same-origin' });
+                const eventsData = await eventsRes.json();
+                if (!cancelled && eventsData.events) {
+                  setGoogleCalendarEvents(eventsData.events);
+                }
+                if (syncRes.ok) {
+                  setGoogleSyncMsg(`✅ ${syncData.synced} reuniões sincronizadas com Google Calendar${syncData.errors ? `, ${syncData.errors} erros` : ''}`);
                 } else {
-                  setGoogleSyncMsg(`❌ ${data.error || 'Erro ao sincronizar'}`);
+                  setGoogleSyncMsg(`❌ ${syncData.error || 'Erro ao sincronizar'}`);
                 }
               } catch (err) {
                 setGoogleSyncMsg('❌ Erro de conexão');
