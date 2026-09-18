@@ -193,27 +193,26 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
   }
 
   // ─── MOBILE / TABLET ───────────────────────────────────────
-  // Strategy:
-  //   1. Show up to 4 links inline in the header (they fit in the row)
-  //   2. If more exist, show a "+N" button inline — no overlay
-  //   3. Clicking "+N" toggles an in-flow grid below the header
-  //      (never covers search, never fixed overlay)
-  //   4. Tapping any link navigates and collapses the grid
+  // 策略：
+  //   1. Header 中只显示 "+" 按钮（含未读角标）
+  //   2. 点击后展开一个内联面板（随页面滚动，不遮挡搜索框）
+  //   3. 点击任意链接或面板外区域自动收起
 
   return (
     <div className="flex xl:hidden items-center gap-1.5">
-      {/* Only show "+N" button in header — links hidden until expanded */}
+      {/* "+" Button — always visible in header */}
       {favorites.length > 0 && (
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className={`relative flex items-center justify-center h-11 w-11 rounded-xl transition-colors ${
+          className={`relative flex items-center justify-center h-9 w-9 rounded-lg transition-colors ${
             expanded
               ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
           aria-expanded={expanded}
           aria-label="Acessos rápidos"
+          title="Acessos rápidos"
         >
           <Link2 className="h-4 w-4" />
           {extraLinks.length > 0 && (
@@ -224,11 +223,11 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
         </button>
       )}
 
-      {/* In-flow expanded panel — sits below header, never overlays search */}
+      {/* Inline expanded panel — flows with page, never overlays search */}
       {expanded && (
-        <div className="fixed inset-x-0 top-16 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-700 shadow-lg">
+        <div className="fixed inset-x-0 top-16 z-30 bg-white/98 dark:bg-slate-900/98 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {favorites.map(link => {
                 const Icon = ICONS[link.icon] || Link2;
                 return (
@@ -236,7 +235,7 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
                     key={link.id}
                     type="button"
                     onClick={() => { activateLink(link); setExpanded(false); }}
-                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl transition active:scale-95 ${COLORS[link.color]}`}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl transition active:scale-95 ${COLORS[link.color]}`}
                   >
                     <Icon className="h-5 w-5" />
                     <span className="text-[10px] font-bold truncate w-full text-center">{link.title}</span>
@@ -247,7 +246,7 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
             <div className="mt-3 flex justify-end">
               <button
                 type="button"
-                onClick={openManager}
+                onClick={() => { setExpanded(false); openManager(); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <Settings className="h-3.5 w-3.5" />
