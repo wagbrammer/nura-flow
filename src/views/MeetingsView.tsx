@@ -69,7 +69,12 @@ export const MeetingsView: React.FC = () => {
           const eventsRes = await fetch('/api/google/calendar/events', { credentials: 'same-origin' });
           const eventsData = await eventsRes.json();
           if (eventsData.events) {
-            setGoogleEvents(eventsData.events);
+            // Add flag to identify Google events for UI differentiation
+            const googleEventsWithFlag = eventsData.events.map(event => ({
+              ...event,
+              isGoogleEvent: true
+            }));
+            setGoogleEvents(googleEventsWithFlag);
           }
         }
       } catch {}

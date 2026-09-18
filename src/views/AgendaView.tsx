@@ -60,7 +60,12 @@ export const AgendaView: React.FC = () => {
           const eventsRes = await fetch('/api/google/calendar/events', { credentials: 'same-origin' });
           const eventsData = await eventsRes.json();
           if (!cancelled && eventsData.events) {
-            setGoogleCalendarEvents(eventsData.events);
+            // Add flag to identify Google events for UI differentiation
+            const googleEventsWithFlag = eventsData.events.map(event => ({
+              ...event,
+              isGoogleEvent: true
+            }));
+            setGoogleCalendarEvents(googleEventsWithFlag);
           }
           // Also sync all meetings to Google
           const syncRes = await fetch('/api/google/calendar/sync-all', { credentials: 'same-origin' });

@@ -1605,8 +1605,14 @@ async function startServer() {
         // Save the Google event ID back to the meeting in the store
         const googleEventId = (result as any)?.data?.id;
         if (googleEventId) {
-          await meetingsStore.update(meeting.id, { eventId: googleEventId });
-          console.log(`✅ Reunião "${meeting.title}" criada no Google Calendar (ID: ${googleEventId})`);
+          try {
+            await meetingsStore.update(meeting.id, { eventId: googleEventId });
+            console.log(`✅ Reunião "${meeting.title}" criada no Google Calendar (ID: ${googleEventId})`);
+          } catch (storageError) {
+            console.error(`❌ Falha ao salvar eventId da reunião "${meeting.title}" no banco:`, storageError);
+            // Event was created in Google Calendar, so sync is still considered successful
+            console.log(`✅ Reunião "${meeting.title}" criada no Google Calendar (ID: ${googleEventId}) mas falha ao salvar ID localmente`);
+          }
         } else {
           console.warn(`⚠️ Reunião "${meeting.title}" criada mas eventId não retornado - result:`, JSON.stringify(result));
         }
