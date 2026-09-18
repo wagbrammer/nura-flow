@@ -200,7 +200,7 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
 
   return (
     <div className="flex items-center gap-2">
-      {/* "+" Button — always visible in header */}
+      {/* "+" Button — always visible in header, shows badge if extra links */}
       {favorites.length > 0 && (
         <button
           type="button"
@@ -217,7 +217,7 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
           <Link2 className="h-4 w-4" />
           {extraLinks.length > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">
-              +{extraLinks.length}
+              {extraLinks.length}
             </span>
           )}
         </button>

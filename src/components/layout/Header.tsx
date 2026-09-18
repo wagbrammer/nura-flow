@@ -77,11 +77,11 @@ export const Header: React.FC = () => {
             Ctrl K
           </kbd>
         </button>
-        <QuickLinksBar variant="desktop" className="hidden lg:flex shrink-0" />
+        <QuickLinksBar variant="desktop" className="hidden sm:flex shrink-0" />
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
         {/* Active Meeting Indicator Pill */}
         {activeMeeting && (
           <button
