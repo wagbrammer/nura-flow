@@ -193,13 +193,13 @@ export const QuickLinksBar: React.FC<QuickLinksBarProps> = ({ variant }) => {
   }
 
   // ─── MOBILE / TABLET ───────────────────────────────────────
-  // 策略：
-  //   1. Header 中只显示 "+" 按钮（含未读角标）
-  //   2. 点击后展开一个内联面板（随页面滚动，不遮挡搜索框）
-  //   3. 点击任意链接或面板外区域自动收起
+  // Strategy:
+  //   1. Show "+" button with badge in header
+  //   2. Clicking expands a dropdown panel below header
+  //   3. Tapping any link navigates and collapses
 
   return (
-    <div className="flex xl:hidden items-center gap-1.5">
+    <div className="flex items-center gap-2">
       {/* "+" Button — always visible in header */}
       {favorites.length > 0 && (
         <button
