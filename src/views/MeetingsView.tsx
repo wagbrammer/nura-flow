@@ -203,6 +203,37 @@ export const MeetingsView: React.FC = () => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
+    // Check for conflicts with existing meetings on the same day
+    const newStartMs = parseInt(newStartTime.split(':')[0]) * 3600000 + parseInt(newStartTime.split(':')[1]) * 60000;
+    const newEndMs = parseInt(newEndTime.split(':')[0]) * 3600000 + parseInt(newEndTime.split(':')[1]) * 60000;
+
+    const conflicts: { id: string; title: string; startTime: string; endTime: string; conflictsWithGoogleEvent?: boolean }[] = [];
+
+    // Check against NuRa meetings
+    meetings.filter(m => m.date === newDate).forEach(m => {
+      const mStartMs = parseInt(m.startTime.split(':')[0]) * 3600000 + parseInt(m.startTime.split(':')[1]) * 60000;
+      const mEndMs = parseInt(m.endTime.split(':')[0]) * 3600000 + parseInt(m.endTime.split(':')[1]) * 60000;
+      if (newStartMs < mEndMs && mStartMs < newEndMs) {
+        conflicts.push({ id: m.id, title: m.title, startTime: m.startTime, endTime: m.endTime });
+      }
+    });
+
+    // Check against Google Calendar events
+    googleEvents.filter(e => e.startDate === newDate).forEach(e => {
+      const eStartMs = parseInt(e.startTime.split(':')[0]) * 3600000 + parseInt(e.startTime.split(':')[1]) * 60000;
+      const eEndMs = parseInt(e.endTime.split(':')[0]) * 3600000 + parseInt(e.endTime.split(':')[1]) * 60000;
+      if (newStartMs < eEndMs && eStartMs < newEndMs) {
+        conflicts.push({ id: e.id, title: e.title, startTime: e.startTime, endTime: e.endTime, conflictsWithGoogleEvent: true });
+      }
+    });
+
+    if (conflicts.length > 0) {
+      const conflictList = conflicts.map(c => `${c.title} (${c.startTime} - ${c.endTime})${c.conflictsWithGoogleEvent ? ' [Google]' : ''}`).join('\n');
+      if (!window.confirm(`⚠️ Conflito detectado com:\n\n${conflictList}\n\nDeseja mesmo agendar mesmo assim?`)) {
+        return;
+      }
+    }
+
     addMeeting({
       title: newTitle.trim(),
       date: newDate,

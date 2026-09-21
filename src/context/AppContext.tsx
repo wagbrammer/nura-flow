@@ -359,6 +359,39 @@ export function AppProvider({ children, initialView }: { children: ReactNode; in
   };
 
   // ---- Meeting helpers ----
+  const findConflicts = (newDate: string, newStartTime: string, newEndTime: string): { id: string; title: string; startTime: string; endTime: string; conflictsWithGoogleEvent?: boolean }[] => {
+    const conflicts: { id: string; title: string; startTime: string; endTime: string; conflictsWithGoogleEvent?: boolean }[] = [];
+    const newStartMs = parseTimeToMs(newStartTime);
+    const newEndMs = parseTimeToMs(newEndTime);
+
+    for (const meeting of meetings) {
+      if (meeting.date !== newDate) continue;
+      const mStartMs = parseTimeToMs(meeting.startTime);
+      const mEndMs = parseTimeToMs(meeting.endTime);
+      // Check overlap: new meeting starts before existing meeting ends AND existing meeting starts before new meeting ends
+      if (newStartMs < mEndMs && mStartMs < newEndMs) {
+        conflicts.push({ id: meeting.id, title: meeting.title, startTime: meeting.startTime, endTime: meeting.endTime });
+      }
+    }
+
+    // Also check Google Calendar events if available
+    for (const event of googleCalendarEvents) {
+      if (event.startDate !== newDate) continue;
+      const eStartMs = parseTimeToMs(event.startTime);
+      const eEndMs = parseTimeToMs(event.endTime);
+      if (newStartMs < eEndMs && eStartMs < newEndMs) {
+        conflicts.push({ id: event.id, title: event.title, startTime: event.startTime, endTime: event.endTime, conflictsWithGoogleEvent: true });
+      }
+    }
+
+    return conflicts;
+  };
+
+  const parseTimeToMs = (timeStr: string): number => {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 3600000 + m * 60000;
+  };
+
   const addMeeting = (partial: Partial<Meeting> & Pick<Meeting, 'title'>): Meeting => {
     const now = new Date().toISOString();
     const meeting: Meeting = {
