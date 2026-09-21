@@ -421,8 +421,8 @@ export const AgendaView: React.FC = () => {
                 const dayGoogleEvents = googleEvents.filter(e => e.startDate === dateStr);
 
                 return (
-                  <div key={dayIdx} className="relative space-y-1 min-h-[54px]
-                            ${isToday ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700' : ''}"
+                  <div key={dayIdx} className={`relative space-y-1 min-h-[660px]
+                            ${isToday ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700' : ''}`}
                        style={{ position: 'relative' }}>
 
                     {/* Render meetings as duration bars */}
@@ -432,22 +432,18 @@ export const AgendaView: React.FC = () => {
                       const filesCount = m.attachments?.length || 0;
                       const notesCount = notes.filter(n => n.meetingId === m.id).length;
 
-                      // Calculate position and size
+                      // Calculate position and size in minutes
                       const startMinutes = parseInt(m.startTime.split(':')[0]) * 60 + parseInt(m.startTime.split(':')[1]);
                       const endMinutes = parseInt(m.endTime.split(':')[0]) * 60 + parseInt(m.endTime.split(':')[1]);
                       const dayStartMinutes = 8 * 60; // 8:00 AM
                       const dayEndMinutes = 19 * 60; // 7:00 PM
-                      const totalDayMinutes = dayEndMinutes - dayStartMinutes; // 11 hours = 660 minutes
 
                       const startOffsetMinutes = Math.max(0, startMinutes - dayStartMinutes);
-                      const endOffsetMinutes = Math.min(totalDayMinutes, endMinutes - dayStartMinutes);
+                      const endOffsetMinutes = Math.min((dayEndMinutes - dayStartMinutes), endMinutes - dayStartMinutes);
                       const durationMinutes = endOffsetMinutes - startOffsetMinutes;
 
-                      const startPercent = (startOffsetMinutes / totalDayMinutes) * 100;
-                      const durationPercent = (durationMinutes / totalDayMinutes) * 100;
-
                       // Prevent negative or zero duration
-                      const heightPercent = Math.max(durationPercent, 5); // Minimum 5% height
+                      const heightMinutes = Math.max(durationMinutes, 5); // Minimum 5 minutes
 
                       return (
                         <div
@@ -460,17 +456,14 @@ export const AgendaView: React.FC = () => {
                             rounded-xl
                             cursor-pointer
                             transition-all
-                            top-[${startPercent}%]
-                            left-0
                             w-full
-                            h-[${heightPercent}%]
                             flex
                             flex-col
                             justify-between
                             p-2
                             text-left
                             z-10`}
-                          style={{ pointerEvents: 'all' }}
+                          style={{ top: startOffsetMinutes, height: heightMinutes, pointerEvents: 'all' }}
                         >
                           <div className="flex justify-between">
                             <p className="text-[11px] font-bold truncate leading-tight">
@@ -536,20 +529,18 @@ export const AgendaView: React.FC = () => {
                     {dayGoogleEvents.map((e) => {
                       const isSelected = activeMeeting?.id === e.id;
 
-                      // Calculate position and size
+                      // Calculate position and size in minutes
                       const startMinutes = parseInt(e.startTime.split(':')[0]) * 60 + parseInt(e.startTime.split(':')[1]);
                       const endMinutes = parseInt(e.endTime.split(':')[0]) * 60 + parseInt(e.endTime.split(':')[1]);
                       const dayStartMinutes = 8 * 60; // 8:00 AM
                       const dayEndMinutes = 19 * 60; // 7:00 PM
-                      const totalDayMinutes = dayEndMinutes - dayStartMinutes;
 
                       const startOffsetMinutes = Math.max(0, startMinutes - dayStartMinutes);
-                      const endOffsetMinutes = Math.min(totalDayMinutes, endMinutes - dayStartMinutes);
+                      const endOffsetMinutes = Math.min((dayEndMinutes - dayStartMinutes), endMinutes - dayStartMinutes);
                       const durationMinutes = endOffsetMinutes - startOffsetMinutes;
 
-                      const startPercent = (startOffsetMinutes / totalDayMinutes) * 100;
-                      const durationPercent = (durationMinutes / totalDayMinutes) * 100;
-                      const heightPercent = Math.max(durationPercent, 5);
+                      // Prevent negative or zero duration
+                      const heightMinutes = Math.max(durationMinutes, 5); // Minimum 5 minutes
 
                       return (
                         <div
@@ -562,17 +553,14 @@ export const AgendaView: React.FC = () => {
                             rounded-xl
                             cursor-pointer
                             transition-all
-                            top-[${startPercent}%]
-                            left-0
                             w-full
-                            h-[${heightPercent}%]
                             flex
                             flex-col
                             justify-between
                             p-2
                             text-left
                             z-10`}
-                          style={{ pointerEvents: 'all' }}
+                          style={{ top: startOffsetMinutes, height: heightMinutes, pointerEvents: 'all' }}
                         >
                           <div className="flex justify-between">
                             <p className="text-[11px] font-bold truncate leading-tight flex items-center gap-1">
