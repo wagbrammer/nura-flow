@@ -255,6 +255,35 @@ export const AgendaView: React.FC = () => {
   };
   const linkedNotes = activeMeeting ? notes.filter(n => n.meetingId === activeMeeting.id) : [];
 
+  // Compute side-by-side layout for overlapping events (Google Calendar style)
+  const computeEventLayout = (events: any[]) => {
+    if (events.length === 0) return [];
+    const sorted = events
+      .map((event, index) => ({ event, index }))
+      .sort((a, b) => {
+        const aStart = parseInt(a.event.startTime.split(':')[0]) * 60 + parseInt(a.event.startTime.split(':')[1]);
+        const bStart = parseInt(b.event.startTime.split(':')[0]) * 60 + parseInt(b.event.startTime.split(':')[1]);
+        return aStart - bStart;
+      });
+    const columnEndTimes: number[] = [];
+    const layoutMap = new Map<string, { column: number; maxColumns: number }>();
+    for (const { event } of sorted) {
+      const start = parseInt(event.startTime.split(':')[0]) * 60 + parseInt(event.startTime.split(':')[1]);
+      const end = parseInt(event.endTime.split(':')[0]) * 60 + parseInt(event.endTime.split(':')[1]);
+      let column = 0;
+      while (column < columnEndTimes.length && columnEndTimes[column] > start) {
+        column++;
+      }
+      if (column >= columnEndTimes.length) {
+        columnEndTimes.push(end);
+      } else {
+        columnEndTimes[column] = end;
+      }
+      layoutMap.set(event.id, { column, maxColumns: columnEndTimes.length });
+    }
+    return events.map(event => layoutMap.get(event.id)!);
+  };
+
   return (
     <div id="agenda-view" className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Agenda Header */}
@@ -395,23 +424,24 @@ export const AgendaView: React.FC = () => {
           </div>
 
           {/* Time Rows */}
-          <div className={`space-y-3 ${viewMode === 'week' ? 'min-w-[500px]' : ''} relative`}>
-            {/* Time axis */}
-            <div className="w-12 flex flex-col items-start space-y-3">
-              {hours.map(hour => {
-                const timeFormatted = `${hour.toString().padStart(2, '0')}:00`;
-                return (
-                  <div key={hour} className="text-xs font-mono font-bold text-slate-400 shrink-0">
-                    {timeFormatted}
-                  </div>
-                );
-              })}
-            </div>
+          <div className={`relative ${viewMode === 'week' ? 'min-w-[500px]' : ''}`}>
+            <div className="flex">
+              {/* Time axis */}
+              <div className="w-12 flex flex-col">
+                {hours.map(hour => {
+                  const timeFormatted = `${hour.toString().padStart(2, '0')}:00`;
+                  return (
+                    <div key={hour} className="h-[55px] text-xs font-mono font-bold text-slate-400 shrink-0 flex items-start pt-0.5">
+                      {timeFormatted}
+                    </div>
+                  );
+                })}
+              </div>
 
-            {/* Day columns with meetings */}
-            <div className="flex-1 grid gap-2"
-                 style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
-            >
+              {/* Day columns with meetings */}
+              <div className="flex-1 grid gap-2"
+                   style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
+              >
               {visibleDays.map((d, dayIdx) => {
                 const dateStr = d.toISOString().split('T')[0];
                 const isToday = d.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
@@ -421,153 +451,168 @@ export const AgendaView: React.FC = () => {
                 const dayGoogleEvents = googleEvents.filter(e => e.startDate === dateStr);
 
                 return (
-                  <div key={dayIdx} className={`relative space-y-1 min-h-[660px]
+                  <div key={dayIdx} className={`relative h-[660px]
                             ${isToday ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700' : ''}`}
                        style={{ position: 'relative' }}>
 
-                    {/* Render meetings as duration bars */}
-                    {dayMeetings.map((m, meetingIdx) => {
-                      const isSelected = activeMeeting?.id === m.id;
-                      const hasMiniAta = Boolean(m.miniAta && m.miniAta.trim().length > 0);
-                      const filesCount = m.attachments?.length || 0;
-                      const notesCount = notes.filter(n => n.meetingId === m.id).length;
+                    {/* Render meetings as duration bars (Google Calendar style) */}
+                    {(() => {
+                      const layout = computeEventLayout(dayMeetings);
+                      return dayMeetings.map((m, meetingIdx) => {
+                        const isSelected = activeMeeting?.id === m.id;
+                        const hasMiniAta = Boolean(m.miniAta && m.miniAta.trim().length > 0);
+                        const filesCount = m.attachments?.length || 0;
+                        const notesCount = notes.filter(n => n.meetingId === m.id).length;
 
-                      // Calculate position and size in minutes
-                      const startMinutes = parseInt(m.startTime.split(':')[0]) * 60 + parseInt(m.startTime.split(':')[1]);
-                      const endMinutes = parseInt(m.endTime.split(':')[0]) * 60 + parseInt(m.endTime.split(':')[1]);
-                      const dayStartMinutes = 8 * 60; // 8:00 AM
-                      const dayEndMinutes = 19 * 60; // 7:00 PM
+                        const startMinutes = parseInt(m.startTime.split(':')[0]) * 60 + parseInt(m.startTime.split(':')[1]);
+                        const endMinutes = parseInt(m.endTime.split(':')[0]) * 60 + parseInt(m.endTime.split(':')[1]);
+                        const dayStartMinutes = 8 * 60;
+                        const dayEndMinutes = 19 * 60;
 
-                      const startOffsetMinutes = Math.max(0, startMinutes - dayStartMinutes);
-                      const endOffsetMinutes = Math.min((dayEndMinutes - dayStartMinutes), endMinutes - dayStartMinutes);
-                      const durationMinutes = endOffsetMinutes - startOffsetMinutes;
+                        const startOffsetMinutes = Math.max(0, startMinutes - dayStartMinutes);
+                        const endOffsetMinutes = Math.min((dayEndMinutes - dayStartMinutes), endMinutes - dayStartMinutes);
+                        const durationMinutes = endOffsetMinutes - startOffsetMinutes;
+                        const heightMinutes = Math.max(durationMinutes, 5);
 
-                      // Prevent negative or zero duration
-                      const heightMinutes = Math.max(durationMinutes, 5); // Minimum 5 minutes
+                        const { column, maxColumns } = layout[meetingIdx];
+                        const colWidthPct = 100 / maxColumns;
+                        const leftPct = column * colWidthPct;
 
-                      return (
-                        <div
-                          key={m.id}
-                          onClick={() => setSelectedMeeting(m)}
-                          className={`absolute left-0
-                            ${isSelected
-                              ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/40'
-                              : 'bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200'}
-                            rounded-xl
-                            cursor-pointer
-                            transition-all
-                            w-full
-                            flex
-                            flex-col
-                            justify-between
-                            p-2
-                            text-left
-                            z-10`}
-                          style={{ top: startOffsetMinutes, height: heightMinutes, pointerEvents: 'all' }}
-                        >
-                          <div className="flex justify-between">
-                            <p className="text-[11px] font-bold truncate leading-tight">
-                              {m.title}
-                            </p>
-                            <div className="flex items-center gap-1 mt-1.5 text-[9px]">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditMeeting(m);
-                                }}
-                                className="p-1 rounded transition-colors hover:bg-white/20"
-                                title="Editar reunião"
-                              >
-                                <Edit3 className="w-3 h-3" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm(`Deseja realmente excluir a reunião "${m.title}"?`)) {
-                                    deleteMeeting(m.id);
-                                    if (activeMeeting?.id === m.id) setSelectedMeeting(null);
-                                  }
-                                }}
-                                className="p-1 rounded transition-colors hover:bg-red-50"
-                                title="Excluir reunião"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => setSelectedMeeting(m)}
+                            className={`absolute
+                              ${isSelected
+                                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/40'
+                                : 'bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200'}
+                              rounded-lg
+                              cursor-pointer
+                              transition-all
+                              flex
+                              flex-col
+                              justify-between
+                              p-1.5
+                              text-left
+                              z-10`}
+                            style={{
+                              top: startOffsetMinutes,
+                              height: heightMinutes,
+                              left: `${leftPct}%`,
+                              width: `${colWidthPct - 1}%`,
+                              pointerEvents: 'all'
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <p className="text-[11px] font-bold truncate leading-tight">
+                                {m.title}
+                              </p>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditMeeting(m);
+                                  }}
+                                  className="p-1 rounded transition-colors hover:bg-white/20"
+                                  title="Editar reunião"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Deseja realmente excluir a reunião "${m.title}"?`)) {
+                                      deleteMeeting(m.id);
+                                      if (activeMeeting?.id === m.id) setSelectedMeeting(null);
+                                    }
+                                  }}
+                                  className="p-1 rounded transition-colors hover:bg-red-50"
+                                  title="Excluir reunião"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <p className="text-[10px] truncate">{m.startTime} - {m.endTime}</p>
+
+                            <div className="flex items-center gap-1 mt-1 flex-wrap text-[8px]">
+                              {hasMiniAta && (
+                                <span className="flex items-center gap-0.5">
+                                  <FileText className="w-2.5 h-2.5" />
+                                  Ata
+                                </span>
+                              )}
+                              {filesCount > 0 && (
+                                <span className="flex items-center gap-0.5">
+                                  <Paperclip className="w-2.5 h-2.5" />
+                                  {filesCount}
+                                </span>
+                              )}
+                              {notesCount > 0 && (
+                                <span className="flex items-center gap-0.5">
+                                  <PenTool className="w-2.5 h-2.5" />
+                                  {notesCount}
+                                </span>
+                              )}
                             </div>
                           </div>
+                        );
+                      });
+                    })()}
 
-                          <p className="text-[10px] truncate">{m.startTime} - {m.endTime}</p>
+                    {/* Render Google Calendar events as duration bars (Google Calendar style) */}
+                    {(() => {
+                      const layout = computeEventLayout(dayGoogleEvents);
+                      return dayGoogleEvents.map((e) => {
+                        const isSelected = activeMeeting?.id === e.id;
 
-                          {/* Badges indicating mini ata & files */}
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[8px]">
-                            {hasMiniAta && (
-                              <span className="flex items-center gap-0.5">
-                                <FileText className="w-2.5 h-2.5" />
-                                Ata
-                              </span>
-                            )}
-                            {filesCount > 0 && (
-                              <span className="flex items-center gap-0.5">
-                                <Paperclip className="w-2.5 h-2.5" />
-                                {filesCount}
-                              </span>
-                            )}
-                            {notesCount > 0 && (
-                              <span className="flex items-center gap-0.5">
-                                <PenTool className="w-2.5 h-2.5" />
-                                {notesCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        const startMinutes = parseInt(e.startTime.split(':')[0]) * 60 + parseInt(e.startTime.split(':')[1]);
+                        const endMinutes = parseInt(e.endTime.split(':')[0]) * 60 + parseInt(e.endTime.split(':')[1]);
+                        const dayStartMinutes = 8 * 60;
+                        const dayEndMinutes = 19 * 60;
 
-                    {/* Render Google Calendar events as duration bars with overlap support */}
-                    {dayGoogleEvents.map((e) => {
-                      const isSelected = activeMeeting?.id === e.id;
+                        const startOffsetMinutes = Math.max(0, startMinutes - dayStartMinutes);
+                        const endOffsetMinutes = Math.min((dayEndMinutes - dayStartMinutes), endMinutes - dayStartMinutes);
+                        const durationMinutes = endOffsetMinutes - startOffsetMinutes;
+                        const heightMinutes = Math.max(durationMinutes, 5);
 
-                      // Calculate position and size in minutes
-                      const startMinutes = parseInt(e.startTime.split(':')[0]) * 60 + parseInt(e.startTime.split(':')[1]);
-                      const endMinutes = parseInt(e.endTime.split(':')[0]) * 60 + parseInt(e.endTime.split(':')[1]);
-                      const dayStartMinutes = 8 * 60; // 8:00 AM
-                      const dayEndMinutes = 19 * 60; // 7:00 PM
+                        const { column, maxColumns } = layout[dayGoogleEvents.findIndex(ev => ev.id === e.id)];
+                        const colWidthPct = 100 / maxColumns;
+                        const leftPct = column * colWidthPct;
 
-                      const startOffsetMinutes = Math.max(0, startMinutes - dayStartMinutes);
-                      const endOffsetMinutes = Math.min((dayEndMinutes - dayStartMinutes), endMinutes - dayStartMinutes);
-                      const durationMinutes = endOffsetMinutes - startOffsetMinutes;
-
-                      // Prevent negative or zero duration
-                      const heightMinutes = Math.max(durationMinutes, 5); // Minimum 5 minutes
-
-                      return (
-                        <div
-                          key={e.id}
-                          onClick={() => setSelectedMeeting({ ...e, id: e.id, miniAta: e.description, startTime: e.startTime, endTime: e.endTime, date: e.startDate })}
-                          className={`absolute left-0
-                            ${isSelected
-                              ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40'
-                              : 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100'}
-                            rounded-xl
-                            cursor-pointer
-                            transition-all
-                            w-full
-                            flex
-                            flex-col
-                            justify-between
-                            p-2
-                            text-left
-                            z-10`}
-                          style={{ top: startOffsetMinutes, height: heightMinutes, pointerEvents: 'all' }}
-                        >
-                          <div className="flex justify-between">
-                            <p className="text-[11px] font-bold truncate leading-tight flex items-center gap-1">
-                              <span className="text-[9px] bg-blue-100 dark:bg-blue-900 px-1 rounded">G</span>
-                              {e.title}
-                            </p>
-                            <div className="flex items-center gap-1 mt-1.5 text-[9px]">
+                        return (
+                          <div
+                            key={e.id}
+                            onClick={() => setSelectedMeeting({ ...e, id: e.id, miniAta: e.description, startTime: e.startTime, endTime: e.endTime, date: e.startDate })}
+                            className={`absolute
+                              ${isSelected
+                                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40'
+                                : 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100'}
+                              rounded-lg
+                              cursor-pointer
+                              transition-all
+                              flex
+                              flex-col
+                              justify-between
+                              p-1.5
+                              text-left
+                              z-10`}
+                            style={{
+                              top: startOffsetMinutes,
+                              height: heightMinutes,
+                              left: `${leftPct}%`,
+                              width: `${colWidthPct - 1}%`,
+                              pointerEvents: 'all'
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <p className="text-[11px] font-bold truncate leading-tight flex items-center gap-1">
+                                <span className="text-[9px] bg-blue-100 dark:bg-blue-900 px-1 rounded">G</span>
+                                {e.title}
+                              </p>
                               <button
                                 type="button"
                                 onClick={(ev) => {
@@ -580,29 +625,29 @@ export const AgendaView: React.FC = () => {
                                 <ExternalLink className="w-3 h-3" />
                               </button>
                             </div>
+
+                            <p className="text-[10px] truncate">{e.startTime} - {e.endTime}</p>
+
+                            {e.location && (
+                              <p className="text-[9px] truncate flex items-center gap-1">
+                                <span>📍</span> {e.location}
+                              </p>
+                            )}
+
+                            {e.meetUrl && (
+                              <a
+                                href={e.meetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
+                              >
+                                <ExternalLink className="w-2 h-2" /> Meet
+                              </a>
+                            )}
                           </div>
-
-                          <p className="text-[10px] truncate">{e.startTime} - {e.endTime}</p>
-
-                          {e.location && (
-                            <p className="text-[9px] truncate flex items-center gap-1">
-                              <span>📍</span> {e.location}
-                            </p>
-                          )}
-
-                          {e.meetUrl && (
-                            <a
-                              href={e.meetUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[9px] text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
-                            >
-                              <ExternalLink className="w-2 h-2" /> Meet
-                            </a>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 );
               })}
