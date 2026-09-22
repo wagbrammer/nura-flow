@@ -24,7 +24,7 @@ export const AgendaView: React.FC = () => {
     meetings,
     notes,
     events,
-    activeMeeting,
+    activeMeetingId,
     setCurrentView,
     setSelectedMeetingId,
     setIsGlobalSearchOpen,
@@ -35,6 +35,8 @@ export const AgendaView: React.FC = () => {
     tags,
     addTag,
   } = useApp();
+
+  const activeMeeting = meetings.find(m => m.id === activeMeetingId) || null;
 
   const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
   const [selectedMeeting, setSelectedMeeting] = useState<any | null>(meetings[0] || null);
