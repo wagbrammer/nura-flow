@@ -3,13 +3,17 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  CheckCircle,
   Clock,
   Paperclip,
   PenTool,
   ExternalLink,
   Trash2,
   Tag,
+  Edit3,
+  RefreshCw,
+  FileText,
+  Plus,
+  CalendarIcon,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatDateBR, formatRelativeTimeBR } from '../lib/date';
@@ -20,6 +24,7 @@ export const AgendaView: React.FC = () => {
     meetings,
     notes,
     events,
+    activeMeeting,
     setCurrentView,
     setSelectedMeetingId,
     setIsGlobalSearchOpen,
