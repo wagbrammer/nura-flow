@@ -213,6 +213,35 @@ export const AgendaView: React.FC = () => {
     };
   };
 
+  // Google Calendar style overlap layout: divide overlapping events into columns
+  const computeEventLayout = (events: any[]) => {
+    if (events.length === 0) return [];
+    const sorted = events
+      .map((event, index) => ({ event, index }))
+      .sort((a, b) => {
+        const aStart = parseTimeToMinutes(a.event.startTime);
+        const bStart = parseTimeToMinutes(b.event.startTime);
+        return aStart - bStart;
+      });
+    const columnEndTimes: number[] = [];
+    const layoutMap = new Map<string, { column: number; maxColumns: number }>();
+    for (const { event } of sorted) {
+      const start = parseTimeToMinutes(event.startTime);
+      const end = parseTimeToMinutes(event.endTime);
+      let column = 0;
+      while (column < columnEndTimes.length && columnEndTimes[column] > start) {
+        column++;
+      }
+      if (column >= columnEndTimes.length) {
+        columnEndTimes.push(end);
+      } else {
+        columnEndTimes[column] = end;
+      }
+      layoutMap.set(event.id, { column, maxColumns: columnEndTimes.length });
+    }
+    return events.map(event => layoutMap.get(event.id)!);
+  };
+
   return (
     <div id="agenda-view" className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Agenda Header */}
@@ -357,54 +386,81 @@ export const AgendaView: React.FC = () => {
                         />
                       ))}
 
-                      {/* Meetings and Google Events */}
-                      {allEvents.map((event: any) => {
-                        const isGoogle = event.source === 'google';
-                        const id = event.id;
-                        const title = event.title;
-                        const startTime = event.startTime;
-                        const endTime = event.endTime;
-                        const isSelected = activeMeeting?.id === id;
-                        const { top, height } = getEventPosition(event.startTime, event.endTime);
-                        const hasMiniAta = !isGoogle && Boolean((event as any).miniAta && (event as any).miniAta.trim().length > 0);
-                        const filesCount = !isGoogle ? ((event as any).attachments?.length || 0) : 0;
-                        const notesCount = !isGoogle ? notes.filter(n => n.meetingId === id).length : 0;
+                      {/* Compute column layout for overlapping events */}
+                      {(() => {
+                        const layout = computeEventLayout(allEvents);
+                        return allEvents.map((event: any) => {
+                          const isGoogle = event.source === 'google';
+                          const id = event.id;
+                          const title = event.title;
+                          const startTime = event.startTime;
+                          const endTime = event.endTime;
+                          const isSelected = activeMeeting?.id === id;
+                          const { top, height } = getEventPosition(event.startTime, event.endTime);
+                          const hasMiniAta = !isGoogle && Boolean((event as any).miniAta && (event as any).miniAta.trim().length > 0);
+                          const filesCount = !isGoogle ? ((event as any).attachments?.length || 0) : 0;
+                          const notesCount = !isGoogle ? notes.filter(n => n.meetingId === id).length : 0;
 
-                        return (
-                          <div
-                            key={id}
-                            onClick={() => setSelectedMeeting(event)}
-                            className={`absolute left-1 right-1 rounded-lg cursor-pointer transition-all overflow-hidden ${
-                              isSelected
-                                ? (isGoogle ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40' : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/40')
-                                : (isGoogle ? 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100' : 'bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100')
-                            }`}
-                            style={{ top: `${top}px`, height: `${height}px` }}
-                          >
-                            <div className="p-1.5">
-                              <p className="text-[10px] font-bold truncate">{title}</p>
-                              <p className="text-[9px] opacity-75">{startTime} - {endTime}</p>
-                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                {hasMiniAta && (
-                                  <span className="flex items-center gap-0.5 text-[8px]">
-                                    <FileText className="w-2 h-2" /> Ata
-                                  </span>
-                                )}
-                                {filesCount > 0 && (
-                                  <span className="flex items-center gap-0.5 text-[8px]">
-                                    <Paperclip className="w-2 h-2" /> {filesCount}
-                                  </span>
-                                )}
-                                {notesCount > 0 && (
-                                  <span className="flex items-center gap-0.5 text-[8px]">
-                                    <PenTool className="w-2 h-2" /> {notesCount}
-                                  </span>
+                          // Find layout info for this event
+                          const eventIndex = allEvents.indexOf(event);
+                          const eventLayout = layout[eventIndex];
+                          const { column, maxColumns } = eventLayout || { column: 0, maxColumns: 1 };
+
+                          // Calculate column position and width
+                          const colWidth = maxColumns > 1 ? (100 / maxColumns) : 100;
+                          const leftOffset = maxColumns > 1 ? (column * colWidth) : 0;
+                          const adjustedWidth = maxColumns > 1 ? (colWidth - 1) : 98;
+
+                          return (
+                            <div
+                              key={id}
+                              onClick={() => setSelectedMeeting(event)}
+                              className={`absolute rounded-lg cursor-pointer transition-all overflow-hidden ${
+                                isSelected
+                                  ? (isGoogle ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40' : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/40')
+                                  : (isGoogle ? 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100' : 'bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100')
+                              }`}
+                              style={{
+                                top: `${top}px`,
+                                height: `${height}px`,
+                                left: `${leftOffset + 1}%`,
+                                width: `${adjustedWidth}%`,
+                                zIndex: maxColumns > 1 ? 10 + column : 1
+                              }}
+                            >
+                              <div className="p-1.5 h-full flex flex-col justify-center">
+                                {height >= 30 ? (
+                                  <>
+                                    <p className="text-[10px] font-bold truncate leading-tight">{title}</p>
+                                    <p className="text-[9px] opacity-75 mt-0.5">{startTime} - {endTime}</p>
+                                    {(hasMiniAta || filesCount > 0 || notesCount > 0) && (
+                                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                        {hasMiniAta && (
+                                          <span className="flex items-center gap-0.5 text-[8px]">
+                                            <FileText className="w-2 h-2" /> Ata
+                                          </span>
+                                        )}
+                                        {filesCount > 0 && (
+                                          <span className="flex items-center gap-0.5 text-[8px]">
+                                            <Paperclip className="w-2 h-2" /> {filesCount}
+                                          </span>
+                                        )}
+                                        {notesCount > 0 && (
+                                          <span className="flex items-center gap-0.5 text-[8px]">
+                                            <PenTool className="w-2 h-2" /> {notesCount}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className="text-[9px] font-bold truncate leading-tight">{title}</p>
                                 )}
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   );
                 })}
