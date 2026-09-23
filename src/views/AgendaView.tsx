@@ -53,6 +53,29 @@ export const AgendaView: React.FC = () => {
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [isEditingTags, setIsEditingTags] = useState(false);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleSyncMsg, setGoogleSyncMsg] = useState<string | null>(null);
+
+  // Load Google Calendar events on mount
+  useEffect(() => {
+    async function loadGoogleEvents() {
+      try {
+        const res = await fetch('/api/auth/google/status', { credentials: 'same-origin' });
+        const data = await res.json();
+        if (data.connected) {
+          const eventsRes = await fetch('/api/google/calendar/events', { credentials: 'same-origin' });
+          const eventsData = await eventsRes.json();
+          if (eventsData.events) {
+            setGoogleEvents(eventsData.events);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load Google Calendar events:', err);
+      }
+    }
+    loadGoogleEvents();
+  }, []);
 
   const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 08:00 to 19:00
   const PIXELS_PER_MINUTE = 1; // 1 pixel per minute for simplicity
