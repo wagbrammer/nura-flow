@@ -428,33 +428,39 @@ export const AgendaView: React.FC = () => {
                                 zIndex: maxColumns > 1 ? 10 + column : 1
                               }}
                             >
-                              <div className="p-1.5 h-full flex flex-col justify-center">
-                                {height >= 30 ? (
+                              <div className="p-1 h-full flex flex-col justify-center min-w-0">
+                                {height >= 20 ? (
                                   <>
-                                    <p className="text-[10px] font-bold truncate leading-tight">{title}</p>
-                                    <p className="text-[9px] opacity-75 mt-0.5">{startTime} - {endTime}</p>
-                                    {(hasMiniAta || filesCount > 0 || notesCount > 0) && (
+                                    <p className="text-[9px] font-bold leading-tight break-words overflow-hidden">
+                                      {title.length > 20 ? title.substring(0, 20) + '...' : title}
+                                    </p>
+                                    {height >= 35 && (
+                                      <p className="text-[8px] opacity-75 mt-0.5">{startTime} - {endTime}</p>
+                                    )}
+                                    {height >= 50 && (hasMiniAta || filesCount > 0 || notesCount > 0) && (
                                       <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                         {hasMiniAta && (
-                                          <span className="flex items-center gap-0.5 text-[8px]">
-                                            <FileText className="w-2 h-2" /> Ata
+                                          <span className="flex items-center gap-0.5 text-[7px]">
+                                            <FileText className="w-1.5 h-1.5" /> Ata
                                           </span>
                                         )}
                                         {filesCount > 0 && (
-                                          <span className="flex items-center gap-0.5 text-[8px]">
-                                            <Paperclip className="w-2 h-2" /> {filesCount}
+                                          <span className="flex items-center gap-0.5 text-[7px]">
+                                            <Paperclip className="w-1.5 h-1.5" /> {filesCount}
                                           </span>
                                         )}
                                         {notesCount > 0 && (
-                                          <span className="flex items-center gap-0.5 text-[8px]">
-                                            <PenTool className="w-2 h-2" /> {notesCount}
+                                          <span className="flex items-center gap-0.5 text-[7px]">
+                                            <PenTool className="w-1.5 h-1.5" /> {notesCount}
                                           </span>
                                         )}
                                       </div>
                                     )}
                                   </>
                                 ) : (
-                                  <p className="text-[9px] font-bold truncate leading-tight">{title}</p>
+                                  <p className="text-[8px] font-bold leading-none overflow-hidden">
+                                    {title.length > 10 ? title.substring(0, 10) + '…' : title}
+                                  </p>
                                 )}
                               </div>
                             </div>
