@@ -315,6 +315,8 @@ export const AgendaView: React.FC = () => {
                   const dateStr = d.toISOString().split('T')[0];
                   const isToday = d.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
                   const dayMeetings = meetings.filter(m => m.date === dateStr);
+                  const dayGoogleEvents = events.filter(e => e.startDate === dateStr);
+                  const allEvents = [...dayMeetings.map(m => ({ ...m, source: 'local' })), ...dayGoogleEvents.map(e => ({ ...e, source: 'google' }))];
 
                   return (
                     <div
@@ -332,28 +334,33 @@ export const AgendaView: React.FC = () => {
                         />
                       ))}
 
-                      {/* Meetings */}
-                      {dayMeetings.map(m => {
-                        const isSelected = activeMeeting?.id === m.id;
-                        const { top, height } = getEventPosition(m.startTime, m.endTime);
-                        const hasMiniAta = Boolean(m.miniAta && m.miniAta.trim().length > 0);
-                        const filesCount = m.attachments?.length || 0;
-                        const notesCount = notes.filter(n => n.meetingId === m.id).length;
+                      {/* Meetings and Google Events */}
+                      {allEvents.map((event: any) => {
+                        const isGoogle = event.source === 'google';
+                        const id = event.id;
+                        const title = isGoogle ? event.title : event.title;
+                        const startTime = isGoogle ? event.startTime : event.startTime;
+                        const endTime = isGoogle ? event.endTime : event.endTime;
+                        const isSelected = activeMeeting?.id === id;
+                        const { top, height } = getEventPosition(event.startTime, event.endTime);
+                        const hasMiniAta = !isGoogle && Boolean(event.miniAta && event.miniAta.trim().length > 0);
+                        const filesCount = !isGoogle ? (event.attachments?.length || 0) : 0;
+                        const notesCount = !isGoogle ? notes.filter(n => n.meetingId === id).length : 0;
 
                         return (
                           <div
-                            key={m.id}
-                            onClick={() => setSelectedMeeting(m)}
+                            key={id}
+                            onClick={() => setSelectedMeeting(event)}
                             className={`absolute left-1 right-1 rounded-lg cursor-pointer transition-all overflow-hidden ${
                               isSelected
-                                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/40'
-                                : 'bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100'
+                                ? (isGoogle ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40' : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/40')
+                                : (isGoogle ? 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100' : 'bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100')
                             }`}
                             style={{ top: `${top}px`, height: `${height}px` }}
                           >
                             <div className="p-1.5">
-                              <p className="text-[10px] font-bold truncate">{m.title}</p>
-                              <p className="text-[9px] opacity-75">{m.startTime} - {m.endTime}</p>
+                              <p className="text-[10px] font-bold truncate">{title}</p>
+                              <p className="text-[9px] opacity-75">{startTime} - {endTime}</p>
                               <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                 {hasMiniAta && (
                                   <span className="flex items-center gap-0.5 text-[8px]">
