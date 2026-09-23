@@ -78,10 +78,10 @@ export const AgendaView: React.FC = () => {
   }, []);
 
   const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 08:00 to 19:00
-  const PIXELS_PER_MINUTE = 2; // 2 pixels per minute for better visibility
+  const PIXELS_PER_MINUTE = 1; // 1 pixel per minute
   const DAY_START_MINUTES = 8 * 60; // 8:00 AM
   const DAY_END_MINUTES = 19 * 60; // 7:00 PM
-  const DAY_HEIGHT = DAY_END_MINUTES - DAY_START_MINUTES; // 660 pixels = 330px at 2px/min
+  const DAY_HEIGHT = DAY_END_MINUTES - DAY_START_MINUTES; // 660 pixels
 
   const getWeekDays = (baseDate: Date) => {
     const days: Date[] = [];
@@ -373,7 +373,7 @@ export const AgendaView: React.FC = () => {
                   return (
                     <div
                       key={dayIdx}
-                      className={`relative h-[330px] ${
+                      className={`relative h-[660px] ${
                         isToday ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700' : ''
                       }`}
                     >
@@ -414,7 +414,10 @@ export const AgendaView: React.FC = () => {
                           return (
                             <div
                               key={id}
-                              onClick={() => setSelectedMeeting(event)}
+                              onClick={() => {
+                                setSelectedMeeting(event);
+                                if (!isGoogle) setSelectedMeetingId(event.id);
+                              }}
                               className={`absolute rounded-lg cursor-pointer transition-all overflow-hidden ${
                                 isSelected
                                   ? (isGoogle ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40' : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/40')
@@ -431,8 +434,8 @@ export const AgendaView: React.FC = () => {
                               <div className="p-1 h-full flex flex-col justify-center min-w-0">
                                 {height >= 20 ? (
                                   <>
-                                    <p className="text-[9px] font-bold leading-tight break-words overflow-hidden">
-                                      {title.length > 20 ? title.substring(0, 20) + '...' : title}
+                                    <p className="text-[9px] font-bold truncate max-w-[80px]">
+                                      {title}
                                     </p>
                                     {height >= 35 && (
                                       <p className="text-[8px] opacity-75 mt-0.5">{startTime} - {endTime}</p>
@@ -458,8 +461,8 @@ export const AgendaView: React.FC = () => {
                                     )}
                                   </>
                                 ) : (
-                                  <p className="text-[8px] font-bold leading-none overflow-hidden">
-                                    {title.length > 10 ? title.substring(0, 10) + '…' : title}
+                                  <p className="text-[8px] font-bold truncate max-w-[60px]">
+                                    {title}
                                   </p>
                                 )}
                               </div>
