@@ -480,25 +480,25 @@ export const AgendaView: React.FC = () => {
 
         {/* Right Drawer */}
         <div className="lg:col-span-5 space-y-4">
-          {activeMeeting ? (
+          {selectedMeeting ? (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                   Compromisso Selecionado
                 </span>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  {formatDateBR(activeMeeting.date)}
+                  {formatDateBR(selectedMeeting.date)}
                 </span>
               </div>
 
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {activeMeeting.title}
+                  {selectedMeeting.title}
                 </h2>
                 <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{activeMeeting.startTime} às {activeMeeting.endTime}</span>
-                  {activeMeeting.location && <span>• {activeMeeting.location}</span>}
+                  <span>{selectedMeeting.startTime} às {selectedMeeting.endTime}</span>
+                  {selectedMeeting.location && <span>• {selectedMeeting.location}</span>}
                 </div>
               </div>
 
