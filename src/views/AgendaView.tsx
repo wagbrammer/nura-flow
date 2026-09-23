@@ -78,10 +78,10 @@ export const AgendaView: React.FC = () => {
   }, []);
 
   const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 08:00 to 19:00
-  const PIXELS_PER_MINUTE = 1; // 1 pixel per minute for simplicity
+  const PIXELS_PER_MINUTE = 2; // 2 pixels per minute for better visibility
   const DAY_START_MINUTES = 8 * 60; // 8:00 AM
   const DAY_END_MINUTES = 19 * 60; // 7:00 PM
-  const DAY_HEIGHT = DAY_END_MINUTES - DAY_START_MINUTES; // 660 pixels
+  const DAY_HEIGHT = DAY_END_MINUTES - DAY_START_MINUTES; // 660 pixels = 330px at 2px/min
 
   const getWeekDays = (baseDate: Date) => {
     const days: Date[] = [];
@@ -373,7 +373,7 @@ export const AgendaView: React.FC = () => {
                   return (
                     <div
                       key={dayIdx}
-                      className={`relative h-[660px] ${
+                      className={`relative h-[330px] ${
                         isToday ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700' : ''
                       }`}
                     >
@@ -382,7 +382,7 @@ export const AgendaView: React.FC = () => {
                         <div
                           key={hour}
                           className="absolute w-full border-t border-slate-200 dark:border-slate-700 left-0"
-                          style={{ top: `${(hour - 8) * 60}px` }}
+                          style={{ top: `${(hour - 8) * 60 * PIXELS_PER_MINUTE}px` }}
                         />
                       ))}
 
