@@ -361,13 +361,13 @@ export const AgendaView: React.FC = () => {
                       {allEvents.map((event: any) => {
                         const isGoogle = event.source === 'google';
                         const id = event.id;
-                        const title = isGoogle ? event.title : event.title;
-                        const startTime = isGoogle ? event.startTime : event.startTime;
-                        const endTime = isGoogle ? event.endTime : event.endTime;
+                        const title = event.title;
+                        const startTime = event.startTime;
+                        const endTime = event.endTime;
                         const isSelected = activeMeeting?.id === id;
                         const { top, height } = getEventPosition(event.startTime, event.endTime);
-                        const hasMiniAta = !isGoogle && Boolean(event.miniAta && event.miniAta.trim().length > 0);
-                        const filesCount = !isGoogle ? (event.attachments?.length || 0) : 0;
+                        const hasMiniAta = !isGoogle && Boolean((event as any).miniAta && (event as any).miniAta.trim().length > 0);
+                        const filesCount = !isGoogle ? ((event as any).attachments?.length || 0) : 0;
                         const notesCount = !isGoogle ? notes.filter(n => n.meetingId === id).length : 0;
 
                         return (
